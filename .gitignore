@@ -1,0 +1,52 @@
+# Python Bytecode and Cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Environments
+.venv/
+venv/
+env/
+ENV/
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
+
+# Datasets & Data Storage (Managed by DVC in Phase 2+)
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+*.csv
+*.parquet
+*.sqlite
+*.db
+
+# Model Checkpoints & Artifacts
+*.pkl
+*.joblib
+*.h5
+*.onnx
+models/
+
+# MLflow & DVC local artifacts/cache
+mlruns/
+mlartifacts/
+.dvc/cache/
+.dvc/tmp/
+
+# Environment variables and secrets
+.env
+.env.local
+!.env.example
+
+# OS and IDE specific files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
+logs/
