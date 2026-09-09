@@ -11,8 +11,8 @@ The full MLOps workflow will incorporate:
 * **Data Validation & Quality**: Automated schema, data type, nulls, duplicates, and numerical sanity checks (`src/data/validation.py`).
 * **Exploratory Data Analysis**: Data distribution, class imbalance, and pattern visualizations (`reports/eda/`).
 * **Preprocessing & Feature Engineering**: Leak-free, vectorized feature engineering and column transformations (`src/features/feature_engineering.py`, `src/data/preprocessing.py`).
-* **Imbalance Handling**: SMOTE oversampling strictly applied to training data.
-* **Model Training**: Hyperparameter-tuned XGBoost classifier.
+* **Model Training**: Baseline XGBoost classifier training with `ImbPipeline` (scaling + One-Hot Encoding + training-only SMOTE oversampling).
+* **Model Evaluation**: Comprehensive metrics evaluation (Precision, Recall, F1, ROC-AUC, PR-AUC) and diagnostic plots (`reports/model/`).
 * **Data & Pipeline Versioning**: DVC pipeline (`dvc.yaml`) for dataset lineage and execution reproducibility.
 * **Experiment Tracking & Registry**: MLflow for metrics, parameters, artifacts logging, and model lifecycle management.
 * **API Serving**: FastAPI REST endpoints for model inference and health monitoring.
@@ -27,13 +27,14 @@ The full MLOps workflow will incorporate:
 ## Current Status
 
 ```text
-Current Development Phase: Phase 4 — Data Preprocessing + Feature Engineering
+Current Development Phase: Phase 5 — Model Training + Evaluation
 ```
 
 Phase 1 established the repository foundation and environment configuration.
 Phase 2 initialized **DVC** dataset versioning and remote storage.
-Phase 3 implemented **Automated Data Validation** (`src/data/validation.py`, `scripts/validate_data.py`), unit test suite, and **Exploratory Data Analysis**.
-Phase 4 implements **Preprocessing & Feature Engineering** (`src/features/feature_engineering.py`, `src/data/preprocessing.py`, `scripts/preprocess_data.py`), generating `data/processed/cleaned.parquet` and processing report `reports/preprocessing/preprocessing_report.json`.
+Phase 3 implemented **Automated Data Validation** and **Exploratory Data Analysis**.
+Phase 4 implemented **Preprocessing & Feature Engineering** (`data/processed/cleaned.parquet`).
+Phase 5 implements **Model Training & Evaluation** (`src/models/train.py`, `src/models/evaluate.py`, `scripts/train_model.py`), generating trained model artifact `models/xgboost_fraud_model.joblib` and test evaluation reports/plots (`reports/model/`).
 
 ---
 
@@ -42,8 +43,7 @@ Phase 4 implements **Preprocessing & Feature Engineering** (`src/features/featur
 ### Dataset Details
 * **Raw Dataset**: `AIML DATASET.csv` (`data/raw/AIML DATASET.csv`, `6,362,620` rows × `11` columns)
 * **Processed Dataset**: `cleaned.parquet` (`data/processed/cleaned.parquet`, `6,362,620` rows × `10` columns, `249.57 MB`)
-* **Engineered Features**: `balance_diff_orig`, `balance_diff_dest`, `amount_to_balance_ratio`.
-* **Dropped Columns**: `nameOrig`, `nameDest`, `isFlaggedFraud`, `step`.
+* **Trained Model Artifact**: `models/xgboost_fraud_model.joblib` (`1.88 MB`)
 
 ### Pipeline Execution Commands
 
@@ -54,7 +54,10 @@ python scripts/validate_data.py
 # 2. Run data preprocessing & feature engineering
 python scripts/preprocess_data.py
 
-# 3. Run entire unit test suite
+# 3. Train XGBoost model & evaluate test set
+python scripts/train_model.py
+
+# 4. Run unit test suite
 pytest tests/
 ```
 
@@ -118,6 +121,8 @@ credit-card-fraud-mlops/
 │   ├── raw/                # Immutable raw datasets (tracked by DVC)
 │   └── processed/          # Cleaned & transformed datasets (cleaned.parquet)
 │
+├── models/                 # Model binary artifacts (xgboost_fraud_model.joblib)
+│
 ├── notebooks/              # Exploratory notebooks
 │   ├── xgboost_experiments.ipynb
 │   └── phase3_data_validation_eda.ipynb
@@ -126,33 +131,40 @@ credit-card-fraud-mlops/
 │   ├── __init__.py
 │   ├── config.py           # Centralized environment variable configuration
 │   ├── data/
-│   │   ├── __init__.py
 │   │   ├── validation.py   # Automated data validation module
 │   │   └── preprocessing.py# Data preprocessing module
 │   ├── features/
-│   │   ├── __init__.py
 │   │   └── feature_engineering.py # Feature engineering module
-│   ├── models/             # Model training, SMOTE & evaluation modules
+│   ├── models/
+│   │   ├── train.py        # Model training module
+│   │   └── evaluate.py     # Model evaluation module
 │   └── monitoring/         # Data & model drift detection modules
 │
 ├── app/                    # FastAPI application & API endpoints
 ├── tests/                  # Pytest unit & integration tests
 │   ├── test_data_validation.py
 │   ├── test_feature_engineering.py
-│   └── test_preprocessing.py
+│   ├── test_preprocessing.py
+│   ├── test_model_training.py
+│   └── test_model_evaluation.py
 │
 ├── configs/                # Environment & deployment configurations
-├── reports/                # Validation reports, preprocessing reports & EDA
+├── reports/                # Validation reports, preprocessing reports & model evaluation
 │   ├── validation/
-│   │   └── data_validation_report.json
 │   ├── preprocessing/
-│   │   └── preprocessing_report.json
-│   └── eda/
+│   ├── eda/
+│   └── model/
+│       ├── metrics.json
+│       ├── classification_report.json
+│       ├── confusion_matrix.png
+│       ├── roc_curve.png
+│       └── precision_recall_curve.png
 │
 ├── scripts/                # Execution scripts
 │   ├── validate_data.py
 │   ├── run_eda.py
-│   └── preprocess_data.py
+│   ├── preprocess_data.py
+│   └── train_model.py
 │
 ├── ProjectDetails.md       # Master project specification
 ├── README.md               # Project documentation
@@ -184,5 +196,6 @@ dvc pull
 ```bash
 python scripts/validate_data.py
 python scripts/preprocess_data.py
+python scripts/train_model.py
 pytest tests/
 ```
