@@ -10,7 +10,7 @@ The full MLOps workflow will incorporate:
 * **Data Versioning**: DVC dataset tracking and remote storage reproducibility.
 * **Data Validation & Quality**: Automated schema, data type, nulls, duplicates, and numerical sanity checks (`src/data/validation.py`).
 * **Exploratory Data Analysis**: Data distribution, class imbalance, and pattern visualizations (`reports/eda/`).
-* **Preprocessing & Feature Engineering**: Reusable transformers for consistent training and inference.
+* **Preprocessing & Feature Engineering**: Leak-free, vectorized feature engineering and column transformations (`src/features/feature_engineering.py`, `src/data/preprocessing.py`).
 * **Imbalance Handling**: SMOTE oversampling strictly applied to training data.
 * **Model Training**: Hyperparameter-tuned XGBoost classifier.
 * **Data & Pipeline Versioning**: DVC pipeline (`dvc.yaml`) for dataset lineage and execution reproducibility.
@@ -27,35 +27,35 @@ The full MLOps workflow will incorporate:
 ## Current Status
 
 ```text
-Current Development Phase: Phase 3 — Data Validation + EDA
+Current Development Phase: Phase 4 — Data Preprocessing + Feature Engineering
 ```
 
 Phase 1 established the repository foundation and environment configuration.
 Phase 2 initialized **DVC** dataset versioning and remote storage.
-Phase 3 implements **Automated Data Validation** (`src/data/validation.py`, `scripts/validate_data.py`), unit testing suite (`tests/test_data_validation.py`), structured reporting (`reports/validation/data_validation_report.json`), and comprehensive **Exploratory Data Analysis** (`scripts/run_eda.py`, `reports/eda/`, `notebooks/phase3_data_validation_eda.ipynb`).
+Phase 3 implemented **Automated Data Validation** (`src/data/validation.py`, `scripts/validate_data.py`), unit test suite, and **Exploratory Data Analysis**.
+Phase 4 implements **Preprocessing & Feature Engineering** (`src/features/feature_engineering.py`, `src/data/preprocessing.py`, `scripts/preprocess_data.py`), generating `data/processed/cleaned.parquet` and processing report `reports/preprocessing/preprocessing_report.json`.
 
 ---
 
 ## Dataset & Versioning
 
 ### Dataset Details
-* **Filename**: `AIML DATASET.csv`
-* **Location**: `data/raw/AIML DATASET.csv`
-* **Format**: CSV (`6,362,620` rows × `11` columns, `~470.67 MB`)
-* **Domain & Purpose**: Synthetic financial transaction log (PaySim) for detecting fraudulent mobile money transactions (`isFraud`).
-* **Columns**: `step`, `type`, `amount`, `nameOrig`, `oldbalanceOrg`, `newbalanceOrig`, `nameDest`, `oldbalanceDest`, `newbalanceDest`, `isFraud`, `isFlaggedFraud`.
+* **Raw Dataset**: `AIML DATASET.csv` (`data/raw/AIML DATASET.csv`, `6,362,620` rows × `11` columns)
+* **Processed Dataset**: `cleaned.parquet` (`data/processed/cleaned.parquet`, `6,362,620` rows × `10` columns, `249.57 MB`)
+* **Engineered Features**: `balance_diff_orig`, `balance_diff_dest`, `amount_to_balance_ratio`.
+* **Dropped Columns**: `nameOrig`, `nameDest`, `isFlaggedFraud`, `step`.
 
-### Phase 3 Execution Commands
+### Pipeline Execution Commands
 
 ```bash
-# Run automated data validation script
+# 1. Run automated data validation
 python scripts/validate_data.py
 
-# Run validation unit tests
-pytest tests/test_data_validation.py
+# 2. Run data preprocessing & feature engineering
+python scripts/preprocess_data.py
 
-# Generate EDA visualizations and plots
-python scripts/run_eda.py
+# 3. Run entire unit test suite
+pytest tests/
 ```
 
 ---
@@ -116,7 +116,7 @@ credit-card-fraud-mlops/
 │
 ├── data/
 │   ├── raw/                # Immutable raw datasets (tracked by DVC)
-│   └── processed/          # Cleaned & transformed datasets
+│   └── processed/          # Cleaned & transformed datasets (cleaned.parquet)
 │
 ├── notebooks/              # Exploratory notebooks
 │   ├── xgboost_experiments.ipynb
@@ -127,39 +127,39 @@ credit-card-fraud-mlops/
 │   ├── config.py           # Centralized environment variable configuration
 │   ├── data/
 │   │   ├── __init__.py
-│   │   └── validation.py   # Automated data validation module
-│   ├── features/           # Preprocessing & feature engineering modules
+│   │   ├── validation.py   # Automated data validation module
+│   │   └── preprocessing.py# Data preprocessing module
+│   ├── features/
+│   │   ├── __init__.py
+│   │   └── feature_engineering.py # Feature engineering module
 │   ├── models/             # Model training, SMOTE & evaluation modules
 │   └── monitoring/         # Data & model drift detection modules
 │
 ├── app/                    # FastAPI application & API endpoints
 ├── tests/                  # Pytest unit & integration tests
-│   └── test_data_validation.py
+│   ├── test_data_validation.py
+│   ├── test_feature_engineering.py
+│   └── test_preprocessing.py
 │
 ├── configs/                # Environment & deployment configurations
-├── reports/                # Validation reports & EDA visualizations
+├── reports/                # Validation reports, preprocessing reports & EDA
 │   ├── validation/
 │   │   └── data_validation_report.json
+│   ├── preprocessing/
+│   │   └── preprocessing_report.json
 │   └── eda/
-│       ├── class_distribution.png
-│       ├── transaction_type_distribution.png
-│       ├── fraud_by_transaction_type.png
-│       ├── transaction_amount_distribution.png
-│       ├── fraud_amount_comparison.png
-│       ├── balance_analysis.png
-│       ├── correlation_matrix.png
-│       └── eda_findings.md
 │
 ├── scripts/                # Execution scripts
 │   ├── validate_data.py
-│   └── run_eda.py
+│   ├── run_eda.py
+│   └── preprocess_data.py
 │
 ├── ProjectDetails.md       # Master project specification
 ├── README.md               # Project documentation
 ├── requirements.txt        # Python dependencies
 ├── .env.example            # Environment variables template
 ├── .gitignore              # Git ignore patterns
-└── params.yaml             # Pipeline and validation configurations
+└── params.yaml             # Pipeline and model configurations
 ```
 
 ---
@@ -180,9 +180,9 @@ pip install -r requirements.txt
 dvc pull
 ```
 
-### 3. Run Data Validation & EDA
+### 3. Run Pipeline Stages & Tests
 ```bash
 python scripts/validate_data.py
-pytest tests/test_data_validation.py
-python scripts/run_eda.py
+python scripts/preprocess_data.py
+pytest tests/
 ```

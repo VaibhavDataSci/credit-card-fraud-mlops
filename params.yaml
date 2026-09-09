@@ -34,6 +34,22 @@ data_validation:
     - nameOrig
     - nameDest
 
+preprocessing:
+  raw_data_path: data/raw/AIML DATASET.csv
+  processed_data_path: data/processed/cleaned.parquet
+  target_column: isFraud
+  drop_columns:
+    - nameOrig
+    - nameDest
+    - isFlaggedFraud
+    - step
+  categorical_columns:
+    - type
+
+feature_engineering:
+  enable_balance_diffs: true
+  enable_amount_ratio: true
+
 data_split:
   test_size: 0.3
   stratify: true
