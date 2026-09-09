@@ -1,0 +1,145 @@
+{
+  "timestamp": "2026-09-09T06:13:47.847820+00:00",
+  "dataset_path": "/Users/VAIBHAV/Desktop/credit-card-fraud-mlops/data/raw/AIML DATASET.csv",
+  "overall_status": "PASSED",
+  "checks": {
+    "dataset_size": {
+      "rows": 6362620,
+      "columns": 11,
+      "status": "PASSED"
+    },
+    "schema": {
+      "status": "PASSED",
+      "expected_columns": [
+        "step",
+        "type",
+        "amount",
+        "nameOrig",
+        "oldbalanceOrg",
+        "newbalanceOrig",
+        "nameDest",
+        "oldbalanceDest",
+        "newbalanceDest",
+        "isFraud",
+        "isFlaggedFraud"
+      ],
+      "missing_columns": [],
+      "unexpected_columns": []
+    },
+    "data_types": {
+      "status": "PASSED",
+      "details": {
+        "step": {
+          "expected": "numeric",
+          "actual": "int64",
+          "valid": true
+        },
+        "amount": {
+          "expected": "numeric",
+          "actual": "float64",
+          "valid": true
+        },
+        "oldbalanceOrg": {
+          "expected": "numeric",
+          "actual": "float64",
+          "valid": true
+        },
+        "newbalanceOrig": {
+          "expected": "numeric",
+          "actual": "float64",
+          "valid": true
+        },
+        "oldbalanceDest": {
+          "expected": "numeric",
+          "actual": "float64",
+          "valid": true
+        },
+        "newbalanceDest": {
+          "expected": "numeric",
+          "actual": "float64",
+          "valid": true
+        },
+        "isFraud": {
+          "expected": "numeric",
+          "actual": "int64",
+          "valid": true
+        },
+        "isFlaggedFraud": {
+          "expected": "numeric",
+          "actual": "int64",
+          "valid": true
+        },
+        "type": {
+          "expected": "categorical/string",
+          "actual": "object",
+          "valid": true
+        },
+        "nameOrig": {
+          "expected": "categorical/string",
+          "actual": "object",
+          "valid": true
+        },
+        "nameDest": {
+          "expected": "categorical/string",
+          "actual": "object",
+          "valid": true
+        }
+      }
+    },
+    "null_values": {
+      "status": "PASSED",
+      "total_nulls": 0,
+      "null_counts": {
+        "step": 0,
+        "type": 0,
+        "amount": 0,
+        "nameOrig": 0,
+        "oldbalanceOrg": 0,
+        "newbalanceOrig": 0,
+        "nameDest": 0,
+        "oldbalanceDest": 0,
+        "newbalanceDest": 0,
+        "isFraud": 0,
+        "isFlaggedFraud": 0
+      },
+      "null_percentages": {
+        "step": 0.0,
+        "type": 0.0,
+        "amount": 0.0,
+        "nameOrig": 0.0,
+        "oldbalanceOrg": 0.0,
+        "newbalanceOrig": 0.0,
+        "nameDest": 0.0,
+        "oldbalanceDest": 0.0,
+        "newbalanceDest": 0.0,
+        "isFraud": 0.0,
+        "isFlaggedFraud": 0.0
+      }
+    },
+    "duplicates": {
+      "status": "PASSED",
+      "duplicate_count": 0,
+      "duplicate_percentage": 0.0
+    },
+    "target_column": {
+      "status": "PASSED",
+      "target_name": "isFraud",
+      "unique_values": [
+        0,
+        1
+      ],
+      "invalid_values": [],
+      "class_distribution": {
+        "0": 6354407,
+        "1": 8213
+      },
+      "fraud_count": 8213,
+      "non_fraud_count": 6354407,
+      "fraud_percentage": 0.12908204481801522
+    },
+    "numerical_sanity": {
+      "status": "PASSED",
+      "issues": []
+    }
+  }
+}

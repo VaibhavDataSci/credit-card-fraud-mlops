@@ -2,6 +2,38 @@ base:
   project_name: credit-card-fraud-mlops
   random_state: 42
 
+data_validation:
+  raw_data_path: data/raw/AIML DATASET.csv
+  target_column: isFraud
+  allowed_target_values:
+    - 0
+    - 1
+  required_columns:
+    - step
+    - type
+    - amount
+    - nameOrig
+    - oldbalanceOrg
+    - newbalanceOrig
+    - nameDest
+    - oldbalanceDest
+    - newbalanceDest
+    - isFraud
+    - isFlaggedFraud
+  numerical_columns:
+    - step
+    - amount
+    - oldbalanceOrg
+    - newbalanceOrig
+    - oldbalanceDest
+    - newbalanceDest
+    - isFraud
+    - isFlaggedFraud
+  categorical_columns:
+    - type
+    - nameOrig
+    - nameDest
+
 data_split:
   test_size: 0.3
   stratify: true

@@ -8,7 +8,8 @@ The objective of this project is to implement a robust, reproducible, deployable
 
 The full MLOps workflow will incorporate:
 * **Data Versioning**: DVC dataset tracking and remote storage reproducibility.
-* **Data Validation**: Automated schema & missing data verification.
+* **Data Validation & Quality**: Automated schema, data type, nulls, duplicates, and numerical sanity checks (`src/data/validation.py`).
+* **Exploratory Data Analysis**: Data distribution, class imbalance, and pattern visualizations (`reports/eda/`).
 * **Preprocessing & Feature Engineering**: Reusable transformers for consistent training and inference.
 * **Imbalance Handling**: SMOTE oversampling strictly applied to training data.
 * **Model Training**: Hyperparameter-tuned XGBoost classifier.
@@ -26,42 +27,35 @@ The full MLOps workflow will incorporate:
 ## Current Status
 
 ```text
-Current Development Phase: Phase 2 — Dataset + DVC Setup
+Current Development Phase: Phase 3 — Data Validation + EDA
 ```
 
 Phase 1 established the repository foundation and environment configuration.
-Phase 2 initializes **DVC** for data version control, configures a local development remote (`.dvc/storage`), sets `.gitignore` rules to exclude raw dataset binaries from Git while tracking `.dvc` metadata, and establishes dataset versioning workflows.
+Phase 2 initialized **DVC** dataset versioning and remote storage.
+Phase 3 implements **Automated Data Validation** (`src/data/validation.py`, `scripts/validate_data.py`), unit testing suite (`tests/test_data_validation.py`), structured reporting (`reports/validation/data_validation_report.json`), and comprehensive **Exploratory Data Analysis** (`scripts/run_eda.py`, `reports/eda/`, `notebooks/phase3_data_validation_eda.ipynb`).
 
 ---
 
 ## Dataset & Versioning
 
 ### Dataset Details
-* **Expected Filename**: `AIML DATASET.csv` (or `creditcard.csv`)
+* **Filename**: `AIML DATASET.csv`
 * **Location**: `data/raw/AIML DATASET.csv`
-* **Format**: CSV
+* **Format**: CSV (`6,362,620` rows × `11` columns, `~470.67 MB`)
 * **Domain & Purpose**: Synthetic financial transaction log (PaySim) for detecting fraudulent mobile money transactions (`isFraud`).
 * **Columns**: `step`, `type`, `amount`, `nameOrig`, `oldbalanceOrg`, `newbalanceOrig`, `nameDest`, `oldbalanceDest`, `newbalanceDest`, `isFraud`, `isFlaggedFraud`.
 
-### Versioning Architecture
-* **Git**: Tracks source code, configurations (`params.yaml`, `.env.example`), tests, documentation, and DVC metadata files (`*.dvc`, `.dvc/config`).
-* **DVC**: Tracks raw data binaries in `data/raw/` and processed data outputs in `data/processed/`.
-* **Git Exclusions**: Raw CSV dataset files are strictly ignored by `.gitignore` and managed exclusively by DVC.
-
-### DVC Usage Commands
+### Phase 3 Execution Commands
 
 ```bash
-# Check dataset tracking status
-dvc status
+# Run automated data validation script
+python scripts/validate_data.py
 
-# Track a raw dataset file with DVC
-dvc add data/raw/AIML\ DATASET.csv
+# Run validation unit tests
+pytest tests/test_data_validation.py
 
-# Push dataset version to DVC remote storage
-dvc push
-
-# Pull dataset version from DVC remote storage
-dvc pull
+# Generate EDA visualizations and plots
+python scripts/run_eda.py
 ```
 
 ---
@@ -116,68 +110,79 @@ Champion Model
 credit-card-fraud-mlops/
 │
 ├── .dvc/                   # DVC configuration & local storage remote
-│   ├── config
-│   └── .gitignore
 │
 ├── .github/
 │   └── workflows/          # GitHub Actions CI/CD workflows
 │
 ├── data/
 │   ├── raw/                # Immutable raw datasets (tracked by DVC)
-│   └── processed/          # Cleaned & transformed datasets (tracked by DVC)
+│   └── processed/          # Cleaned & transformed datasets
 │
-├── notebooks/              # Exploratory notebooks (e.g. xgboost_experiments.ipynb)
+├── notebooks/              # Exploratory notebooks
+│   ├── xgboost_experiments.ipynb
+│   └── phase3_data_validation_eda.ipynb
 │
 ├── src/                    # Core Python package
 │   ├── __init__.py
 │   ├── config.py           # Centralized environment variable configuration
-│   ├── data/               # Data loading & validation modules
+│   ├── data/
+│   │   ├── __init__.py
+│   │   └── validation.py   # Automated data validation module
 │   ├── features/           # Preprocessing & feature engineering modules
 │   ├── models/             # Model training, SMOTE & evaluation modules
 │   └── monitoring/         # Data & model drift detection modules
 │
 ├── app/                    # FastAPI application & API endpoints
 ├── tests/                  # Pytest unit & integration tests
+│   └── test_data_validation.py
+│
 ├── configs/                # Environment & deployment configurations
-├── reports/                # Monitoring & evaluation reports
-├── scripts/                # Utility & execution scripts
+├── reports/                # Validation reports & EDA visualizations
+│   ├── validation/
+│   │   └── data_validation_report.json
+│   └── eda/
+│       ├── class_distribution.png
+│       ├── transaction_type_distribution.png
+│       ├── fraud_by_transaction_type.png
+│       ├── transaction_amount_distribution.png
+│       ├── fraud_amount_comparison.png
+│       ├── balance_analysis.png
+│       ├── correlation_matrix.png
+│       └── eda_findings.md
+│
+├── scripts/                # Execution scripts
+│   ├── validate_data.py
+│   └── run_eda.py
 │
 ├── ProjectDetails.md       # Master project specification
 ├── README.md               # Project documentation
-├── requirements.txt        # Python dependencies (including dvc, python-dotenv)
+├── requirements.txt        # Python dependencies
 ├── .env.example            # Environment variables template
 ├── .gitignore              # Git ignore patterns
-└── params.yaml             # Pipeline and model hyperparameter configurations
+└── params.yaml             # Pipeline and validation configurations
 ```
 
 ---
 
 ## Getting Started
 
-### 1. Clone the repository
+### 1. Clone the repository & Install Dependencies
 ```bash
 git clone <repository-url>
 cd credit-card-fraud-mlops
-```
-
-### 2. Create and Activate Virtual Environment
-```bash
 python3 -m venv venv
 source venv/bin/activate
-```
-
-### 3. Install Dependencies
-```bash
-pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### 4. Set Up Environment Variables
-```bash
-cp .env.example .env
-```
-
-### 5. Fetch Dataset via DVC
+### 2. Fetch Dataset via DVC
 ```bash
 dvc pull
+```
+
+### 3. Run Data Validation & EDA
+```bash
+python scripts/validate_data.py
+pytest tests/test_data_validation.py
+python scripts/run_eda.py
 ```
