@@ -27,14 +27,15 @@ The full MLOps workflow will incorporate:
 ## Current Status
 
 ```text
-Current Development Phase: Phase 5 — Model Training + Evaluation
+Current Development Phase: Phase 6 — MLflow Experiment Tracking
 ```
 
 Phase 1 established the repository foundation and environment configuration.
 Phase 2 initialized **DVC** dataset versioning and remote storage.
 Phase 3 implemented **Automated Data Validation** and **Exploratory Data Analysis**.
 Phase 4 implemented **Preprocessing & Feature Engineering** (`data/processed/cleaned.parquet`).
-Phase 5 implements **Model Training & Evaluation** (`src/models/train.py`, `src/models/evaluate.py`, `scripts/train_model.py`), generating trained model artifact `models/xgboost_fraud_model.joblib` and test evaluation reports/plots (`reports/model/`).
+Phase 5 implemented **Model Training & Evaluation** (`src/models/train.py`, `src/models/evaluate.py`, `scripts/train_model.py`), generating trained model artifact `models/xgboost_fraud_model.joblib` and test evaluation reports/plots (`reports/model/`).
+Phase 6 integrated **MLflow Experiment Tracking** (`src/models/tracking.py`), logging all parameters, metrics, evaluation artifacts, and the trained model to a local MLflow experiment (`fraud_detection_experiments`).
 
 ---
 
@@ -54,10 +55,14 @@ python scripts/validate_data.py
 # 2. Run data preprocessing & feature engineering
 python scripts/preprocess_data.py
 
-# 3. Train XGBoost model & evaluate test set
+# 3. Train XGBoost model, evaluate test set, and log to MLflow
 python scripts/train_model.py
 
-# 4. Run unit test suite
+# 4. Launch MLflow UI to view experiments
+mlflow ui
+# Then open http://127.0.0.1:5000 in your browser
+
+# 5. Run unit test suite
 pytest tests/
 ```
 
@@ -137,7 +142,8 @@ credit-card-fraud-mlops/
 │   │   └── feature_engineering.py # Feature engineering module
 │   ├── models/
 │   │   ├── train.py        # Model training module
-│   │   └── evaluate.py     # Model evaluation module
+│   │   ├── evaluate.py     # Model evaluation module
+│   │   └── tracking.py     # MLflow experiment tracking helper
 │   └── monitoring/         # Data & model drift detection modules
 │
 ├── app/                    # FastAPI application & API endpoints
@@ -146,7 +152,8 @@ credit-card-fraud-mlops/
 │   ├── test_feature_engineering.py
 │   ├── test_preprocessing.py
 │   ├── test_model_training.py
-│   └── test_model_evaluation.py
+│   ├── test_model_evaluation.py
+│   └── test_mlflow_tracking.py
 │
 ├── configs/                # Environment & deployment configurations
 ├── reports/                # Validation reports, preprocessing reports & model evaluation

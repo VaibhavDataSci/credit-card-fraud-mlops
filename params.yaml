@@ -74,3 +74,8 @@ model:
 evaluation:
   model_output_path: models/xgboost_fraud_model.joblib
   reports_dir: reports/model
+
+mlflow:
+  tracking_uri: file:./mlruns
+  experiment_name: fraud_detection_experiments
+  run_name: baseline_smote_xgboost

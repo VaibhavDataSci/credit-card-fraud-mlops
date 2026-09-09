@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI entry point for model training and evaluation."""
+"""CLI entry point for model training, evaluation, and MLflow experiment tracking."""
 
 import os
 import sys
@@ -11,11 +11,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
 from src.models.evaluate import ModelEvaluator
+from src.models.tracking import MLflowTracker
 from src.models.train import ModelTrainer
 
 
 def main():
-    """Execute model training pipeline, save model artifact, and perform evaluation."""
+    """Execute model training pipeline, MLflow tracking, model saving, and evaluation."""
     params_path = BASE_DIR / "params.yaml"
 
     if not params_path.exists():
@@ -31,6 +32,7 @@ def main():
     smote_config = params.get("smote", {})
     eval_config = params.get("evaluation", {})
     prep_config = params.get("preprocessing", {})
+    mlflow_config = params.get("mlflow", {})
 
     proc_rel = prep_config.get("processed_data_path", "data/processed/cleaned.parquet")
     model_rel = eval_config.get("model_output_path", "models/xgboost_fraud_model.joblib")
@@ -50,14 +52,31 @@ def main():
     }
 
     print("==================================================")
-    print("      RUNNING MODEL TRAINING & EVALUATION PIPELINE")
+    print("  RUNNING MODEL TRAINING & MLFLOW TRACKING PIPELINE")
     print("==================================================")
     print(f"Processed Data Path : {proc_abs}")
     print(f"Model Output Path   : {model_abs}")
     print(f"Reports Output Path : {reports_abs}")
+    print(f"MLflow Experiment   : {mlflow_config.get('experiment_name', 'fraud_detection_experiments')}")
+    print(f"MLflow Run Name     : {mlflow_config.get('run_name', 'baseline_smote_xgboost')}")
 
     try:
-        # 1. Train Model
+        # 1. Initialize MLflow Tracker & Start Run
+        tracker = MLflowTracker(mlflow_config)
+        tracker.start_run()
+
+        # Log Experiment Parameters
+        all_params = {
+            "data_split": split_config,
+            "smote": smote_config,
+            "model": model_config,
+            "target_column": prep_config.get("target_column", "isFraud"),
+            "model_type": "xgboost",
+            "imbalance_strategy": "smote_and_scale_pos_weight",
+        }
+        tracker.log_params(all_params)
+
+        # 2. Train Model Pipeline
         trainer = ModelTrainer(train_config)
         pipeline, metadata = trainer.train()
         saved_model_path = trainer.save_model(pipeline)
@@ -68,12 +87,18 @@ def main():
         print(f" - Model Artifact Saved: {saved_model_path} ({model_size_mb} MB)")
         print(f" - Train Shape         : {metadata['train_shape']['rows']} rows, {metadata['train_shape']['columns']} features")
         print(f" - Test Shape          : {metadata['test_shape']['rows']} rows, {metadata['test_shape']['columns']} features")
-        print(f" - Train Class Balance : {metadata['train_class_dist']}")
-        print(f" - Test Class Balance  : {metadata['test_class_dist']}")
 
-        # 2. Evaluate Model on Untouched Test Set
+        # 3. Evaluate Model on Untouched Test Set
         evaluator = ModelEvaluator(reports_dir=str(reports_abs))
         metrics = evaluator.evaluate(pipeline, metadata["X_test"], metadata["y_test"])
+
+        # 4. Log Metrics, Artifacts, and Model to MLflow
+        tracker.log_metrics(metrics)
+        tracker.log_artifacts(str(reports_abs))
+        tracker.log_model(pipeline, artifact_path="model")
+
+        # Cleanly end MLflow run
+        tracker.end_run()
 
         print("--------------------------------------------------")
         print("          TEST SET EVALUATION RESULTS             ")
@@ -86,11 +111,15 @@ def main():
         print(f" - PR-AUC (Average P)  : {metrics['pr_auc']:.4f}")
         print(f" - Confusion Matrix    : TN={metrics['confusion_matrix']['true_negative']:,}, FP={metrics['confusion_matrix']['false_positive']:,}, FN={metrics['confusion_matrix']['false_negative']:,}, TP={metrics['confusion_matrix']['true_positive']:,}")
         print("==================================================")
-        print("[SUCCESS] Model training and evaluation pipeline completed successfully!")
+        print("[SUCCESS] MLflow experiment run logged successfully!")
         sys.exit(0)
 
     except Exception as e:
-        print(f"[FAIL] Model training failed: {str(e)}")
+        print(f"[FAIL] Model training or MLflow tracking failed: {str(e)}")
+        try:
+            tracker.end_run()
+        except Exception:
+            pass
         sys.exit(1)
 
 

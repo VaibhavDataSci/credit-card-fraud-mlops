@@ -31,7 +31,7 @@ data/processed/*
 *.joblib
 *.h5
 *.onnx
-models/
+/models/
 
 # MLflow & DVC local artifacts/cache/remote storage
 mlruns/
