@@ -16,12 +16,15 @@ ENV/
 # Datasets & Data Storage (Managed by DVC in Phase 2+)
 data/raw/*
 !data/raw/.gitkeep
+!data/raw/*.dvc
 data/processed/*
 !data/processed/.gitkeep
+!data/processed/*.dvc
 *.csv
 *.parquet
 *.sqlite
 *.db
+!*.dvc
 
 # Model Checkpoints & Artifacts
 *.pkl
@@ -30,11 +33,12 @@ data/processed/*
 *.onnx
 models/
 
-# MLflow & DVC local artifacts/cache
+# MLflow & DVC local artifacts/cache/remote storage
 mlruns/
 mlartifacts/
 .dvc/cache/
 .dvc/tmp/
+.dvc/storage/
 
 # Environment variables and secrets
 .env
