@@ -47,6 +47,8 @@ def test_model_info_exposes_champion_configuration(monkeypatch):
     assert response.status_code == 200
     assert body["model_name"] == "CreditCardFraudDetector"
     assert body["alias"] == "champion"
+    assert body["version"] == "test-version"
+    assert body["run_id"] == "test-run"
     assert body["strategy"] == "scale_weight_only"
     assert body["threshold"] == 0.90
 
@@ -63,6 +65,7 @@ def test_predict_returns_probability_and_threshold(monkeypatch):
     assert body["is_fraud"] is True
     assert body["threshold"] == 0.90
     assert body["model_name"] == "CreditCardFraudDetector"
+    assert body["model_alias"] == "champion"
 
 
 def test_predict_rejects_invalid_input(monkeypatch):
@@ -74,6 +77,41 @@ def test_predict_rejects_invalid_input(monkeypatch):
     assert response.status_code == 422
 
 
+def test_predict_rejects_missing_required_field(monkeypatch):
+    configure_fake_loader(monkeypatch)
+    invalid_transaction = {key: value for key, value in VALID_TRANSACTION.items() if key != "amount"}
+    with TestClient(app) as client:
+        response = client.post("/predict", json=invalid_transaction)
+
+    assert response.status_code == 422
+
+
+def test_predict_rejects_invalid_transaction_type(monkeypatch):
+    configure_fake_loader(monkeypatch)
+    invalid_transaction = {**VALID_TRANSACTION, "type": "UNKNOWN"}
+    with TestClient(app) as client:
+        response = client.post("/predict", json=invalid_transaction)
+
+    assert response.status_code == 422
+
+
+def test_predict_does_not_accept_target_as_model_feature(monkeypatch):
+    configure_fake_loader(monkeypatch)
+    received = {}
+
+    def fake_predict(transaction):
+        received.update(transaction)
+        return 0.10
+
+    monkeypatch.setattr(model_loader, "predict", fake_predict)
+    with TestClient(app) as client:
+        response = client.post("/predict", json={**VALID_TRANSACTION, "isFraud": 1})
+
+    assert response.status_code == 200
+    assert "isFraud" not in received
+    assert response.json()["is_fraud"] is False
+
+
 def test_predict_returns_503_when_model_is_unavailable(monkeypatch):
     configure_fake_loader(monkeypatch, loaded=False)
     with TestClient(app) as client:
@@ -81,3 +119,20 @@ def test_predict_returns_503_when_model_is_unavailable(monkeypatch):
 
     assert response.status_code == 503
     assert response.json()["detail"] == "Champion model is unavailable"
+
+
+def test_model_loader_runs_once_per_application_startup(monkeypatch):
+    calls = []
+
+    def fake_load():
+        calls.append("load")
+        model_loader.loaded = True
+
+    monkeypatch.setattr(model_loader, "load", fake_load)
+    monkeypatch.setattr(model_loader, "predict", lambda transaction: 0.10)
+    with TestClient(app) as client:
+        client.get("/health")
+        client.post("/predict", json=VALID_TRANSACTION)
+        client.post("/predict", json=VALID_TRANSACTION)
+
+    assert calls == ["load"]

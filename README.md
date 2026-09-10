@@ -149,6 +149,12 @@ Threshold 0.90
 Fraud / Not Fraud
 ```
 
+## Phase 12 — GitHub Actions CI/CD
+
+The `CI` workflow in `.github/workflows/ci.yml` runs on pushes to `main` and pull requests targeting `main`. It installs the existing `requirements.txt`, compiles the application, runs `pytest -q`, builds the existing Docker image, and smoke-tests the container's health, model-info, Swagger, and ReDoc endpoints with a bounded readiness loop.
+
+The workflow does not run DVC, process the raw dataset, retrain models, or modify the MLflow Champion alias. The local filesystem MLflow registry is intentionally not committed, so a clean GitHub runner verifies the container and API contract without fabricating a Champion prediction. When a local `mlruns/` artifact is available, the smoke test also verifies the real `/predict` response.
+
 ---
 
 ## Phase 8 — MLflow Model Registry & Reproducible DVC Pipeline
@@ -189,10 +195,6 @@ Key DVC commands:
 ```bash
 # Display pipeline DAG
 dvc dag
-
-# Check pipeline tracking status
-dvc status
-
 # Reproduce full pipeline end-to-end
 dvc repro
 ```
