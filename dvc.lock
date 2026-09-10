@@ -1,0 +1,217 @@
+schema: '2.0'
+stages:
+  validate:
+    cmd: python scripts/validate_data.py
+    deps:
+    - path: data/raw/AIML DATASET.csv
+      hash: md5
+      md5: e92a5f7447f43712f1dca473d0b0fa85
+      size: 493534783
+    - path: scripts/validate_data.py
+      hash: md5
+      md5: 9d0a6ebce50cef85d2aafb98e7cd4bd0
+      size: 3170
+    - path: src/data/validation.py
+      hash: md5
+      md5: d479bd857ad6c4c518adb48a80a1dceb
+      size: 8179
+    params:
+      params.yaml:
+        data_validation:
+          raw_data_path: data/raw/AIML DATASET.csv
+          target_column: isFraud
+          allowed_target_values:
+          - 0
+          - 1
+          required_columns:
+          - step
+          - type
+          - amount
+          - nameOrig
+          - oldbalanceOrg
+          - newbalanceOrig
+          - nameDest
+          - oldbalanceDest
+          - newbalanceDest
+          - isFraud
+          - isFlaggedFraud
+          numerical_columns:
+          - step
+          - amount
+          - oldbalanceOrg
+          - newbalanceOrig
+          - oldbalanceDest
+          - newbalanceDest
+          - isFraud
+          - isFlaggedFraud
+          categorical_columns:
+          - type
+          - nameOrig
+          - nameDest
+    outs:
+    - path: reports/validation/data_validation_report.json
+      hash: md5
+      md5: 153cf881de8e459160bdcfe0bfe1e9eb
+      size: 3386
+  preprocess:
+    cmd: python scripts/preprocess_data.py
+    deps:
+    - path: data/raw/AIML DATASET.csv
+      hash: md5
+      md5: e92a5f7447f43712f1dca473d0b0fa85
+      size: 493534783
+    - path: scripts/preprocess_data.py
+      hash: md5
+      md5: 8be7a3376a03067e16ef98a5d4b4a8fc
+      size: 3436
+    - path: src/data/preprocessing.py
+      hash: md5
+      md5: 01632e2f530494afeeb13bb8175f1fd2
+      size: 4490
+    params:
+      params.yaml:
+        preprocessing:
+          raw_data_path: data/raw/AIML DATASET.csv
+          preprocessed_data_path: data/processed/preprocessed.parquet
+          processed_data_path: data/processed/cleaned.parquet
+          target_column: isFraud
+          drop_columns:
+          - nameOrig
+          - nameDest
+          - isFlaggedFraud
+          - step
+          categorical_columns:
+          - type
+    outs:
+    - path: data/processed/preprocessed.parquet
+      hash: md5
+      md5: 1badd98201cacfa6fce159ee1c9201cd
+      size: 149416194
+    - path: reports/preprocessing/preprocessing_report.json
+      hash: md5
+      md5: 00f3ebc29c049743b226bad9bb3477fd
+      size: 720
+  features:
+    cmd: python scripts/create_features.py
+    deps:
+    - path: data/processed/preprocessed.parquet
+      hash: md5
+      md5: 1badd98201cacfa6fce159ee1c9201cd
+      size: 149416194
+    - path: scripts/create_features.py
+      hash: md5
+      md5: cad236f58e2b13b079f3558110e3150b
+      size: 3651
+      isexec: true
+    - path: src/features/feature_engineering.py
+      hash: md5
+      md5: c7a74e2b06140626026f32d3f61025ee
+      size: 1641
+    params:
+      params.yaml:
+        feature_engineering:
+          enable_balance_diffs: true
+          enable_amount_ratio: true
+    outs:
+    - path: data/processed/cleaned.parquet
+      hash: md5
+      md5: adcde4b463c57e097c5092a2eb0eb846
+      size: 261690986
+    - path: reports/preprocessing/feature_engineering_report.json
+      hash: md5
+      md5: bb6e6b4e4ff52d48fd8c05e8585f550b
+      size: 537
+  train:
+    cmd: python scripts/train_model.py
+    deps:
+    - path: data/processed/cleaned.parquet
+      hash: md5
+      md5: adcde4b463c57e097c5092a2eb0eb846
+      size: 261690986
+    - path: scripts/train_model.py
+      hash: md5
+      md5: f25be9cd11dfe4b3526befff5b24eb50
+      size: 5820
+    - path: src/models/tracking.py
+      hash: md5
+      md5: 47ee702545c6dde821ac7022ead4ebde
+      size: 3362
+    - path: src/models/train.py
+      hash: md5
+      md5: 9846cd6cdec4b0bccec7c78c11ff67d6
+      size: 7915
+    params:
+      params.yaml:
+        data_split:
+          test_size: 0.3
+          random_state: 42
+          stratify: true
+        model:
+          name: xgboost
+          strategy: scale_weight_only
+          use_smote: false
+          use_scale_pos_weight: true
+          threshold: 0.9
+          objective: binary:logistic
+          eval_metric: logloss
+          n_estimators: 200
+          max_depth: 6
+          learning_rate: 0.05
+          subsample: 0.8
+          colsample_bytree: 0.8
+          random_state: 42
+          n_jobs: -1
+    outs:
+    - path: models/xgboost_fraud_model.joblib
+      hash: md5
+      md5: 6e9e71e6e3acdd1c4f6531c58fcdd4e1
+      size: 594005
+  evaluate:
+    cmd: python scripts/evaluate_and_register.py
+    deps:
+    - path: data/processed/cleaned.parquet
+      hash: md5
+      md5: adcde4b463c57e097c5092a2eb0eb846
+      size: 261690986
+    - path: models/xgboost_fraud_model.joblib
+      hash: md5
+      md5: 6e9e71e6e3acdd1c4f6531c58fcdd4e1
+      size: 594005
+    - path: scripts/evaluate_and_register.py
+      hash: md5
+      md5: 248cf4fd232e38c69b13650ef4eae899
+      size: 9622
+      isexec: true
+    - path: src/models/evaluate.py
+      hash: md5
+      md5: 9139b8fc14315fcf201673fa4e14b383
+      size: 5571
+    - path: src/models/registry.py
+      hash: md5
+      md5: 6185ba2228fb8cabf566e838669d76e4
+      size: 3523
+    - path: src/models/validate.py
+      hash: md5
+      md5: 72e24a69c1d7d24c2f7bcd9d1892f95c
+      size: 6119
+    params:
+      params.yaml:
+        evaluation:
+          model_output_path: models/xgboost_fraud_model.joblib
+          reports_dir: reports/model
+        threshold_analysis:
+          thresholds:
+          - 0.5
+          - 0.6
+          - 0.7
+          - 0.8
+          - 0.9
+    outs:
+    - path: reports/model/metrics.json
+      hash: md5
+      md5: 6e75ddd9e948c0dbfb9b8934be6a7a1f
+      size: 332
+    - path: reports/model/model_metadata.json
+      hash: md5
+      md5: 3a4bf8faa0b8ddb891b6cc1ef7764862
+      size: 922

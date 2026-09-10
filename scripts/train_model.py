@@ -63,22 +63,29 @@ def main():
     try:
         # 1. Initialize MLflow Tracker & Start Run
         tracker = MLflowTracker(mlflow_config)
-        tracker.start_run()
+        active_run = tracker.start_run()
+        run_id = active_run.info.run_id if hasattr(active_run, "info") else str(active_run)
 
         # Log Experiment Parameters
+        use_smote = model_config.get("use_smote", False)
+        use_scale_pos_weight = model_config.get("use_scale_pos_weight", True)
+
         all_params = {
             "data_split": split_config,
-            "smote": smote_config,
+            "smote": smote_config if use_smote else {"enabled": False},
             "model": model_config,
             "target_column": prep_config.get("target_column", "isFraud"),
             "model_type": "xgboost",
-            "imbalance_strategy": "smote_and_scale_pos_weight",
+            "imbalance_strategy": "scale_pos_weight only, no SMOTE",
+            "use_smote": str(use_smote),
+            "use_scale_pos_weight": str(use_scale_pos_weight),
+            "experiment_name": "scale_weight_only",
         }
         tracker.log_params(all_params)
 
-        # 2. Train Model Pipeline
+        # 2. Train Model Pipeline (Phase 7 Selected Strategy: scale_weight_only)
         trainer = ModelTrainer(train_config)
-        pipeline, metadata = trainer.train()
+        pipeline, metadata = trainer.train(use_smote=use_smote, use_scale_pos_weight=use_scale_pos_weight)
         saved_model_path = trainer.save_model(pipeline)
         model_size_mb = round(os.path.getsize(saved_model_path) / (1024 * 1024), 2)
 

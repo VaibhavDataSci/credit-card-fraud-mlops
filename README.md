@@ -27,7 +27,7 @@ The full MLOps workflow will incorporate:
 ## Current Status
 
 ```text
-Current Development Phase: Phase 7 — Model Comparison & Model Selection
+Current Development Phase: Phase 8 — MLflow Model Registry & Reproducible DVC Pipeline
 ```
 
 Phase 1 established the repository foundation and environment configuration.
@@ -36,7 +36,56 @@ Phase 3 implemented **Automated Data Validation** and **Exploratory Data Analysi
 Phase 4 implemented **Preprocessing & Feature Engineering** (`data/processed/cleaned.parquet`).
 Phase 5 implemented **Model Training & Evaluation** (`src/models/train.py`, `src/models/evaluate.py`, `scripts/train_model.py`).
 Phase 6 integrated **MLflow Experiment Tracking** (`src/models/tracking.py`).
-Phase 7 implemented **Model Comparison & Selection** — compared 3 imbalance strategies, performed threshold analysis, and selected `scale_weight_only` at threshold `0.90` as deployment candidate (Precision=0.91, Recall=0.996, F1=0.951).
+Phase 7 implemented **Model Comparison & Selection** — selected `scale_weight_only` at operating threshold `0.90` as deployment candidate.
+Phase 8 implemented **MLflow Model Registry** (`CreditCardFraudDetector` with `@candidate` and `@champion` aliases) and a fully reproducible 5-stage **DVC Pipeline** (`dvc.yaml`).
+
+---
+
+## Phase 8 — MLflow Model Registry & Reproducible DVC Pipeline
+
+### 1. MLflow Model Registry Lifecycle
+
+Registered model name: `CreditCardFraudDetector`
+
+Lifecycle flow:
+```text
+Experiment Run ──► Candidate Model ──► Validation (ModelValidator) ──► Champion Model (@champion)
+```
+
+- **Registry Module**: `src/models/registry.py` provides model registration, tag tracking, and alias management.
+- **Model Validation**: `src/models/validate.py` enforces metric checks, strategy validation (`scale_weight_only`), operating threshold check (`0.90`), model loadability, and inference verification prior to Champion promotion.
+- **Model URI**: Downstream components can load the validated champion model via:
+  ```python
+  import mlflow
+  model = mlflow.sklearn.load_model("models:/CreditCardFraudDetector@champion")
+  ```
+
+### 2. Reproducible DVC Pipeline (`dvc.yaml`)
+
+5-Stage Reproducible Pipeline:
+```text
+validate (scripts/validate_data.py)
+   ↓
+preprocess (scripts/preprocess_data.py)
+   ↓
+features (scripts/create_features.py)
+   ↓
+train (scripts/train_model.py)
+   ↓
+evaluate (scripts/evaluate_and_register.py)
+```
+
+Key DVC commands:
+```bash
+# Display pipeline DAG
+dvc dag
+
+# Check pipeline tracking status
+dvc status
+
+# Reproduce full pipeline end-to-end
+dvc repro
+```
 
 ---
 
@@ -44,30 +93,28 @@ Phase 7 implemented **Model Comparison & Selection** — compared 3 imbalance st
 
 ### Dataset Details
 * **Raw Dataset**: `AIML DATASET.csv` (`data/raw/AIML DATASET.csv`, `6,362,620` rows × `11` columns)
-* **Processed Dataset**: `cleaned.parquet` (`data/processed/cleaned.parquet`, `6,362,620` rows × `10` columns, `249.57 MB`)
-* **Trained Model Artifact**: `models/xgboost_fraud_model.joblib` (`1.88 MB`)
+* **Preprocessed Dataset**: `preprocessed.parquet` (`data/processed/preprocessed.parquet`, `142.49 MB`)
+* **Cleaned Dataset**: `cleaned.parquet` (`data/processed/cleaned.parquet`, `6,362,620` rows × `10` columns, `249.57 MB`)
+* **Trained Model Artifact**: `models/xgboost_fraud_model.joblib` (`0.57 MB`)
 
 ### Pipeline Execution Commands
 
 ```bash
-# 1. Run automated data validation
-python scripts/validate_data.py
+# 1. Reproduce full pipeline end-to-end via DVC
+dvc repro
 
-# 2. Run data preprocessing & feature engineering
-python scripts/preprocess_data.py
+# 2. View pipeline DAG graph
+dvc dag
 
-# 3. Train baseline XGBoost model and log to MLflow
-python scripts/train_model.py
+# 3. Check DVC pipeline status
+dvc status
 
-# 4. Run model comparison (3 experiments + threshold analysis + selection)
-python scripts/compare_models.py
-
-# 5. Launch MLflow UI to view experiments
+# 4. Launch MLflow UI to inspect Model Registry and experiments
 mlflow ui
 # Then open http://127.0.0.1:5000 in your browser
 
-# 6. Run unit test suite
-pytest tests/
+# 5. Run full pytest test suite (36 passed)
+pytest -q
 ```
 
 ---

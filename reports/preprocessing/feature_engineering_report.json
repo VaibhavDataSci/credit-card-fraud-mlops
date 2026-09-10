@@ -1,0 +1,20 @@
+{
+  "timestamp": "2026-09-10T12:21:59.782072+00:00",
+  "input_path": "/Users/VAIBHAV/Desktop/credit-card-fraud-mlops/data/processed/preprocessed.parquet",
+  "output_path": "/Users/VAIBHAV/Desktop/credit-card-fraud-mlops/data/processed/cleaned.parquet",
+  "file_size_mb": 249.57,
+  "input_shape": {
+    "rows": 6362620,
+    "columns": 7
+  },
+  "output_shape": {
+    "rows": 6362620,
+    "columns": 10
+  },
+  "features_created": [
+    "balance_diff_orig",
+    "balance_diff_dest",
+    "amount_to_balance_ratio"
+  ],
+  "status": "SUCCESS"
+}

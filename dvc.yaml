@@ -1,0 +1,64 @@
+stages:
+  validate:
+    cmd: python scripts/validate_data.py
+    deps:
+      - data/raw/AIML DATASET.csv
+      - scripts/validate_data.py
+      - src/data/validation.py
+    params:
+      - data_validation
+    outs:
+      - reports/validation/data_validation_report.json
+
+  preprocess:
+    cmd: python scripts/preprocess_data.py
+    deps:
+      - data/raw/AIML DATASET.csv
+      - scripts/preprocess_data.py
+      - src/data/preprocessing.py
+    params:
+      - preprocessing
+    outs:
+      - data/processed/preprocessed.parquet
+      - reports/preprocessing/preprocessing_report.json
+
+  features:
+    cmd: python scripts/create_features.py
+    deps:
+      - data/processed/preprocessed.parquet
+      - scripts/create_features.py
+      - src/features/feature_engineering.py
+    params:
+      - feature_engineering
+    outs:
+      - data/processed/cleaned.parquet
+      - reports/preprocessing/feature_engineering_report.json
+
+  train:
+    cmd: python scripts/train_model.py
+    deps:
+      - data/processed/cleaned.parquet
+      - scripts/train_model.py
+      - src/models/train.py
+      - src/models/tracking.py
+    params:
+      - data_split
+      - model
+    outs:
+      - models/xgboost_fraud_model.joblib
+
+  evaluate:
+    cmd: python scripts/evaluate_and_register.py
+    deps:
+      - data/processed/cleaned.parquet
+      - models/xgboost_fraud_model.joblib
+      - scripts/evaluate_and_register.py
+      - src/models/evaluate.py
+      - src/models/registry.py
+      - src/models/validate.py
+    params:
+      - evaluation
+      - threshold_analysis
+    outs:
+      - reports/model/metrics.json
+      - reports/model/model_metadata.json

@@ -93,17 +93,8 @@ class MLflowTracker:
             model: Trained pipeline or model object.
             artifact_path: MLflow artifact subpath.
         """
-        # Trust imblearn, xgboost, and sklearn internal types for skops serialization
-        trusted_types = [
-            "imblearn.over_sampling._smote.base.SMOTE",
-            "imblearn.pipeline.Pipeline",
-            "sklearn.metrics._dist_metrics.EuclideanDistance64",
-            "sklearn.neighbors._kd_tree.KDTree",
-            "xgboost.core.Booster",
-            "xgboost.sklearn.XGBClassifier",
-        ]
         mlflow.sklearn.log_model(
-            model, artifact_path=artifact_path, skops_trusted_types=trusted_types
+            model, name=artifact_path, serialization_format="cloudpickle"
         )
 
     def end_run(self):

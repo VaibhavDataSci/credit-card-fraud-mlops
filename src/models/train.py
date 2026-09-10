@@ -158,11 +158,18 @@ class ModelTrainer:
 
         return pipeline
 
-    def train(self, df: pd.DataFrame = None) -> Tuple[ImbPipeline, Dict[str, Any]]:
+    def train(
+        self,
+        df: pd.DataFrame = None,
+        use_smote: bool = None,
+        use_scale_pos_weight: bool = None,
+    ) -> Tuple[ImbPipeline, Dict[str, Any]]:
         """Execute full training pipeline.
 
         Args:
             df: Optional input DataFrame.
+            use_smote: Whether to use SMOTE resampling. Defaults to config setting (default False).
+            use_scale_pos_weight: Whether to compute scale_pos_weight. Defaults to config setting (default True).
 
         Returns:
             Tuple of (Trained ImbPipeline, Training metadata dictionary).
@@ -170,7 +177,14 @@ class ModelTrainer:
         X, y = self.load_data(df)
         X_train, X_test, y_train, y_test = self.split_data(X, y)
 
-        pipeline = self.build_pipeline(X_train, y_train)
+        if use_smote is None:
+            use_smote = self.model_cfg.get("use_smote", False)
+        if use_scale_pos_weight is None:
+            use_scale_pos_weight = self.model_cfg.get("use_scale_pos_weight", True)
+
+        pipeline = self.build_pipeline(
+            X_train, y_train, use_smote=use_smote, use_scale_pos_weight=use_scale_pos_weight
+        )
         pipeline.fit(X_train, y_train)
 
         metadata = {

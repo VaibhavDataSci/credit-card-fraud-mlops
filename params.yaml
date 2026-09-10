@@ -36,6 +36,7 @@ data_validation:
 
 preprocessing:
   raw_data_path: data/raw/AIML DATASET.csv
+  preprocessed_data_path: data/processed/preprocessed.parquet
   processed_data_path: data/processed/cleaned.parquet
   target_column: isFraud
   drop_columns:
@@ -61,6 +62,10 @@ smote:
 
 model:
   name: xgboost
+  strategy: scale_weight_only
+  use_smote: false
+  use_scale_pos_weight: true
+  threshold: 0.90
   objective: binary:logistic
   eval_metric: logloss
   n_estimators: 200
@@ -78,7 +83,10 @@ evaluation:
 mlflow:
   tracking_uri: file:./mlruns
   experiment_name: fraud_detection_experiments
-  run_name: baseline_smote_xgboost
+  run_name: scale_weight_only
+  registered_model: CreditCardFraudDetector
+  champion_alias: champion
+  candidate_alias: candidate
 
 experiments:
   baseline_smote_scale_weight:

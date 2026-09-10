@@ -27,28 +27,25 @@ def main():
         params = yaml.safe_load(f)
 
     prep_config = params.get("preprocessing", {})
-    fe_config = params.get("feature_engineering", {})
-    prep_config["feature_engineering"] = fe_config
-
     raw_rel = prep_config.get("raw_data_path", "data/raw/AIML DATASET.csv")
-    proc_rel = prep_config.get("processed_data_path", "data/processed/cleaned.parquet")
+    preproc_rel = prep_config.get("preprocessed_data_path", "data/processed/preprocessed.parquet")
 
     raw_abs = BASE_DIR / raw_rel
-    proc_abs = BASE_DIR / proc_rel
+    preproc_abs = BASE_DIR / preproc_rel
 
     prep_config["raw_data_path"] = str(raw_abs)
-    prep_config["processed_data_path"] = str(proc_abs)
+    prep_config["preprocessed_data_path"] = str(preproc_abs)
 
     print("==================================================")
-    print("      RUNNING PREPROCESSING & FEATURE PIPELINE    ")
+    print("        RUNNING RAW DATA PREPROCESSING STAGE      ")
     print("==================================================")
     print(f"Raw Input Dataset : {raw_abs}")
-    print(f"Processed Output  : {proc_abs}")
+    print(f"Preprocessed Output: {preproc_abs}")
 
     try:
         preprocessor = DataPreprocessor(prep_config)
-        processed_df, metadata = preprocessor.process()
-        saved_path = preprocessor.save_processed_data(processed_df)
+        processed_df, metadata = preprocessor.preprocess_raw()
+        saved_path = preprocessor.save_processed_data(processed_df, output_path=str(preproc_abs))
 
         # Generate processing report
         output_dir = BASE_DIR / "reports" / "preprocessing"
@@ -60,13 +57,11 @@ def main():
         report = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "raw_dataset_path": str(raw_abs),
-            "processed_dataset_path": str(saved_path),
-            "processed_file_size_bytes": file_size_bytes,
-            "processed_file_size_mb": round(file_size_bytes / (1024 * 1024), 2),
+            "preprocessed_dataset_path": str(saved_path),
+            "file_size_mb": round(file_size_bytes / (1024 * 1024), 2),
             "input_shape": metadata["input_shape"],
             "output_shape": metadata["output_shape"],
             "features_removed": metadata["features_removed"],
-            "features_created": metadata["features_created"],
             "final_columns": metadata["final_columns"],
             "target_column": metadata["target_column"],
             "status": "SUCCESS",
@@ -76,12 +71,11 @@ def main():
             json.dump(report, f, indent=2)
 
         print("--------------------------------------------------")
-        print(f"Processed Dataset Saved : {saved_path} ({report['processed_file_size_mb']} MB)")
-        print(f"Processing Report Saved : {report_path}")
-        print(f" - Input Shape          : {metadata['input_shape']['rows']} rows, {metadata['input_shape']['columns']} cols")
-        print(f" - Output Shape         : {metadata['output_shape']['rows']} rows, {metadata['output_shape']['columns']} cols")
-        print(f" - Features Created     : {metadata['features_created']}")
-        print(f" - Features Removed     : {metadata['features_removed']}")
+        print(f"Preprocessed Dataset Saved: {saved_path} ({report['file_size_mb']} MB)")
+        print(f"Processing Report Saved   : {report_path}")
+        print(f" - Input Shape            : {metadata['input_shape']['rows']} rows, {metadata['input_shape']['columns']} cols")
+        print(f" - Output Shape           : {metadata['output_shape']['rows']} rows, {metadata['output_shape']['columns']} cols")
+        print(f" - Features Removed       : {metadata['features_removed']}")
         print("==================================================")
         print("[SUCCESS] Data preprocessing completed successfully!")
         sys.exit(0)
