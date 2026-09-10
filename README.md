@@ -27,15 +27,16 @@ The full MLOps workflow will incorporate:
 ## Current Status
 
 ```text
-Current Development Phase: Phase 6 — MLflow Experiment Tracking
+Current Development Phase: Phase 7 — Model Comparison & Model Selection
 ```
 
 Phase 1 established the repository foundation and environment configuration.
 Phase 2 initialized **DVC** dataset versioning and remote storage.
 Phase 3 implemented **Automated Data Validation** and **Exploratory Data Analysis**.
 Phase 4 implemented **Preprocessing & Feature Engineering** (`data/processed/cleaned.parquet`).
-Phase 5 implemented **Model Training & Evaluation** (`src/models/train.py`, `src/models/evaluate.py`, `scripts/train_model.py`), generating trained model artifact `models/xgboost_fraud_model.joblib` and test evaluation reports/plots (`reports/model/`).
-Phase 6 integrated **MLflow Experiment Tracking** (`src/models/tracking.py`), logging all parameters, metrics, evaluation artifacts, and the trained model to a local MLflow experiment (`fraud_detection_experiments`).
+Phase 5 implemented **Model Training & Evaluation** (`src/models/train.py`, `src/models/evaluate.py`, `scripts/train_model.py`).
+Phase 6 integrated **MLflow Experiment Tracking** (`src/models/tracking.py`).
+Phase 7 implemented **Model Comparison & Selection** — compared 3 imbalance strategies, performed threshold analysis, and selected `scale_weight_only` at threshold `0.90` as deployment candidate (Precision=0.91, Recall=0.996, F1=0.951).
 
 ---
 
@@ -55,14 +56,17 @@ python scripts/validate_data.py
 # 2. Run data preprocessing & feature engineering
 python scripts/preprocess_data.py
 
-# 3. Train XGBoost model, evaluate test set, and log to MLflow
+# 3. Train baseline XGBoost model and log to MLflow
 python scripts/train_model.py
 
-# 4. Launch MLflow UI to view experiments
+# 4. Run model comparison (3 experiments + threshold analysis + selection)
+python scripts/compare_models.py
+
+# 5. Launch MLflow UI to view experiments
 mlflow ui
 # Then open http://127.0.0.1:5000 in your browser
 
-# 5. Run unit test suite
+# 6. Run unit test suite
 pytest tests/
 ```
 
@@ -143,7 +147,8 @@ credit-card-fraud-mlops/
 │   ├── models/
 │   │   ├── train.py        # Model training module
 │   │   ├── evaluate.py     # Model evaluation module
-│   │   └── tracking.py     # MLflow experiment tracking helper
+│   │   ├── tracking.py     # MLflow experiment tracking helper
+│   │   └── compare.py      # Model comparison, threshold analysis & selection
 │   └── monitoring/         # Data & model drift detection modules
 │
 ├── app/                    # FastAPI application & API endpoints
@@ -153,7 +158,8 @@ credit-card-fraud-mlops/
 │   ├── test_preprocessing.py
 │   ├── test_model_training.py
 │   ├── test_model_evaluation.py
-│   └── test_mlflow_tracking.py
+│   ├── test_mlflow_tracking.py
+│   └── test_model_comparison.py
 │
 ├── configs/                # Environment & deployment configurations
 ├── reports/                # Validation reports, preprocessing reports & model evaluation
@@ -165,13 +171,18 @@ credit-card-fraud-mlops/
 │       ├── classification_report.json
 │       ├── confusion_matrix.png
 │       ├── roc_curve.png
-│       └── precision_recall_curve.png
+│       ├── precision_recall_curve.png
+│       ├── experiment_comparison.json
+│       ├── experiment_comparison.png
+│       ├── model_metadata.json
+│       └── model_selection.md
 │
 ├── scripts/                # Execution scripts
 │   ├── validate_data.py
 │   ├── run_eda.py
 │   ├── preprocess_data.py
-│   └── train_model.py
+│   ├── train_model.py
+│   └── compare_models.py
 │
 ├── ProjectDetails.md       # Master project specification
 ├── README.md               # Project documentation
@@ -204,5 +215,6 @@ dvc pull
 python scripts/validate_data.py
 python scripts/preprocess_data.py
 python scripts/train_model.py
+python scripts/compare_models.py
 pytest tests/
 ```

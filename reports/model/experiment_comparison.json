@@ -1,0 +1,97 @@
+{
+  "generated_at": "2026-09-09T10:13:31.737444+00:00",
+  "experiments": {
+    "baseline_smote_scale_weight": {
+      "precision": 0.03181436235537457,
+      "recall": 0.9987824675324676,
+      "f1_score": 0.06166451596737619,
+      "roc_auc": 0.9997763160918277,
+      "pr_auc": 0.9866473365867116,
+      "false_positives": 74894,
+      "false_negatives": 3,
+      "true_positives": 2461,
+      "true_negatives": 1831428
+    },
+    "smote_only": {
+      "precision": 0.7939941879237972,
+      "recall": 0.9979707792207793,
+      "f1_score": 0.8843733141521309,
+      "roc_auc": 0.9997421414192411,
+      "pr_auc": 0.9886744289382876,
+      "false_positives": 638,
+      "false_negatives": 5,
+      "true_positives": 2459,
+      "true_negatives": 1905684
+    },
+    "scale_weight_only": {
+      "precision": 0.8693342776203966,
+      "recall": 0.9963474025974026,
+      "f1_score": 0.9285173978819969,
+      "roc_auc": 0.9996877271449229,
+      "pr_auc": 0.9889046357235814,
+      "false_positives": 369,
+      "false_negatives": 9,
+      "true_positives": 2455,
+      "true_negatives": 1905953
+    }
+  },
+  "selected_experiment": "scale_weight_only",
+  "threshold_analysis": [
+    {
+      "threshold": 0.5,
+      "precision": 0.8693342776203966,
+      "recall": 0.9963474025974026,
+      "f1_score": 0.9285173978819969,
+      "true_positives": 2455,
+      "true_negatives": 1905953,
+      "false_positives": 369,
+      "false_negatives": 9
+    },
+    {
+      "threshold": 0.6,
+      "precision": 0.8789831722162549,
+      "recall": 0.9963474025974026,
+      "f1_score": 0.933992771542705,
+      "true_positives": 2455,
+      "true_negatives": 1905984,
+      "false_positives": 338,
+      "false_negatives": 9
+    },
+    {
+      "threshold": 0.7,
+      "precision": 0.8891705903658095,
+      "recall": 0.9963474025974026,
+      "f1_score": 0.939712918660287,
+      "true_positives": 2455,
+      "true_negatives": 1906016,
+      "false_positives": 306,
+      "false_negatives": 9
+    },
+    {
+      "threshold": 0.8,
+      "precision": 0.9035701140964298,
+      "recall": 0.9963474025974026,
+      "f1_score": 0.9476934954641961,
+      "true_positives": 2455,
+      "true_negatives": 1906060,
+      "false_positives": 262,
+      "false_negatives": 9
+    },
+    {
+      "threshold": 0.9,
+      "precision": 0.9098998887652948,
+      "recall": 0.9959415584415584,
+      "f1_score": 0.9509784925402054,
+      "true_positives": 2454,
+      "true_negatives": 1906079,
+      "false_positives": 243,
+      "false_negatives": 10
+    }
+  ],
+  "selected_threshold": 0.9,
+  "selection_criteria": {
+    "primary": "Recall >= 0.95 AND highest PR-AUC",
+    "secondary": "Lowest false negatives",
+    "tiebreaker": "Highest F1 Score"
+  }
+}

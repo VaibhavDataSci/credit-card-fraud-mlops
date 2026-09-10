@@ -1,0 +1,28 @@
+{
+  "model_name": "CreditCardFraudDetector",
+  "model_type": "xgboost",
+  "experiment_name": "fraud_detection_experiments",
+  "mlflow_run_id": "bdeee1d8376f48f18a98da80b1951105",
+  "selected_experiment": "scale_weight_only",
+  "imbalance_strategy": "scale_pos_weight only, no SMOTE",
+  "use_smote": false,
+  "use_scale_pos_weight": true,
+  "selected_threshold": 0.9,
+  "evaluation_metrics": {
+    "at_default_threshold": {
+      "precision": 0.8693342776203966,
+      "recall": 0.9963474025974026,
+      "f1_score": 0.9285173978819969,
+      "roc_auc": 0.9996877271449229,
+      "pr_auc": 0.9889046357235814
+    },
+    "at_selected_threshold": {
+      "precision": 0.9098998887652948,
+      "recall": 0.9959415584415584,
+      "f1_score": 0.9509784925402054,
+      "false_positives": 243,
+      "false_negatives": 10
+    }
+  },
+  "selection_date": "2026-09-09T10:13:31.737805+00:00"
+}

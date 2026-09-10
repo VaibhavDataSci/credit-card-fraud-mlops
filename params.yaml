@@ -79,3 +79,27 @@ mlflow:
   tracking_uri: file:./mlruns
   experiment_name: fraud_detection_experiments
   run_name: baseline_smote_xgboost
+
+experiments:
+  baseline_smote_scale_weight:
+    use_smote: true
+    use_scale_pos_weight: true
+    description: "Baseline: SMOTE + scale_pos_weight"
+
+  smote_only:
+    use_smote: true
+    use_scale_pos_weight: false
+    description: "SMOTE only, no scale_pos_weight"
+
+  scale_weight_only:
+    use_smote: false
+    use_scale_pos_weight: true
+    description: "scale_pos_weight only, no SMOTE"
+
+threshold_analysis:
+  thresholds:
+    - 0.50
+    - 0.60
+    - 0.70
+    - 0.80
+    - 0.90

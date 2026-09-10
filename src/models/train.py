@@ -87,12 +87,20 @@ class ModelTrainer:
 
         return X_train, X_test, y_train, y_test
 
-    def build_pipeline(self, X_train: pd.DataFrame, y_train: pd.Series) -> ImbPipeline:
-        """Construct ImbPipeline wrapping ColumnTransformer, SMOTE, and XGBClassifier.
+    def build_pipeline(
+        self,
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        use_smote: bool = True,
+        use_scale_pos_weight: bool = True,
+    ) -> ImbPipeline:
+        """Construct ImbPipeline wrapping ColumnTransformer, optional SMOTE, and XGBClassifier.
 
         Args:
             X_train: Training features DataFrame.
             y_train: Training target Series.
+            use_smote: Whether to include SMOTE resampling step. Defaults to True.
+            use_scale_pos_weight: Whether to compute and apply scale_pos_weight. Defaults to True.
 
         Returns:
             Configured ImbPipeline object.
@@ -109,9 +117,12 @@ class ModelTrainer:
             ]
         )
 
-        # Calculate scale_pos_weight
-        neg_count, pos_count = np.bincount(y_train)
-        scale_pos_weight = neg_count / pos_count if pos_count > 0 else 1.0
+        # Calculate scale_pos_weight only when requested
+        if use_scale_pos_weight:
+            neg_count, pos_count = np.bincount(y_train)
+            scale_pos_weight = neg_count / pos_count if pos_count > 0 else 1.0
+        else:
+            scale_pos_weight = 1.0
 
         # Define XGBoost Classifier
         xgb_clf = XGBClassifier(
@@ -127,20 +138,23 @@ class ModelTrainer:
             n_jobs=self.model_cfg.get("n_jobs", -1),
         )
 
-        # Build ImbPipeline (SMOTE is executed ONLY during fit on X_train, y_train)
-        pipeline = ImbPipeline(
-            steps=[
-                ("prep", preprocessor),
+        # Build pipeline steps conditionally
+        steps = [("prep", preprocessor)]
+
+        if use_smote:
+            steps.append(
                 (
                     "smote",
                     SMOTE(
                         random_state=self.smote_random_state,
                         k_neighbors=self.smote_k_neighbors,
                     ),
-                ),
-                ("clf", xgb_clf),
-            ]
-        )
+                )
+            )
+
+        steps.append(("clf", xgb_clf))
+
+        pipeline = ImbPipeline(steps=steps)
 
         return pipeline
 
