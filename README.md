@@ -155,6 +155,19 @@ The `CI` workflow in `.github/workflows/ci.yml` runs on pushes to `main` and pul
 
 The workflow does not run DVC, process the raw dataset, retrain models, or modify the MLflow Champion alias. The local filesystem MLflow registry is intentionally not committed, so a clean GitHub runner verifies the container and API contract without fabricating a Champion prediction. When a local `mlruns/` artifact is available, the smoke test also verifies the real `/predict` response.
 
+## Phase 13 — Model/API Monitoring
+
+The FastAPI service exposes `GET /monitoring` with lightweight aggregate metrics for:
+
+- API latency
+- Request count and response status
+- Error count and error rate
+- Fraud/non-fraud prediction distribution and probability statistics
+- Predictions below or at/above the configured `0.90` threshold
+- Data-quality validation errors by controlled category
+
+Monitoring stores aggregate values in process-local memory only. It does not persist request bodies, account identifiers, `nameOrig`, or `nameDest`, and it does not use high-cardinality request values as labels. Counters reset when the process restarts, and multiple replicas would require a shared metrics backend. A future phase can connect this monitoring interface to Prometheus/Grafana or another centralized platform without changing prediction behavior.
+
 ---
 
 ## Phase 8 — MLflow Model Registry & Reproducible DVC Pipeline

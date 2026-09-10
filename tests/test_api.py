@@ -1,8 +1,9 @@
 """Tests for the Phase 9 FastAPI inference service."""
 
 from fastapi.testclient import TestClient
+import pytest
 
-from app.main import app, model_loader
+from app.main import app, model_loader, monitoring
 
 
 VALID_TRANSACTION = {
@@ -27,6 +28,13 @@ def configure_fake_loader(monkeypatch, loaded=True):
 
     monkeypatch.setattr(model_loader, "load", fake_load)
     monkeypatch.setattr(model_loader, "predict", lambda transaction: 0.97)
+
+
+@pytest.fixture(autouse=True)
+def reset_monitoring():
+    monitoring.reset()
+    yield
+    monitoring.reset()
 
 
 def test_health_when_model_loads(monkeypatch):
@@ -136,3 +144,49 @@ def test_model_loader_runs_once_per_application_startup(monkeypatch):
         client.post("/predict", json=VALID_TRANSACTION)
 
     assert calls == ["load"]
+
+
+def test_monitoring_endpoint_reports_prediction_and_request_metrics(monkeypatch):
+    configure_fake_loader(monkeypatch)
+    with TestClient(app) as client:
+        client.post("/predict", json=VALID_TRANSACTION)
+        response = client.get("/monitoring")
+
+    body = response.json()
+    assert response.status_code == 200
+    assert body["requests"]["total"] == 1
+    assert body["requests"]["by_endpoint"]["POST /predict"] == 1
+    assert "GET /monitoring" not in body["requests"]["by_endpoint"]
+    assert body["latency"]["count"] == 1
+    assert body["predictions"]["total"] == 1
+    assert body["predictions"]["fraud"] == 1
+    assert body["predictions"]["non_fraud"] == 0
+    assert body["predictions"]["fraud_rate"] == 1.0
+    assert body["predictions"]["at_or_above_threshold"] == 1
+
+
+def test_invalid_request_is_counted_as_data_quality_error(monkeypatch):
+    configure_fake_loader(monkeypatch)
+    with TestClient(app) as client:
+        response = client.post("/predict", json={"type": "UNKNOWN"})
+        monitoring_response = client.get("/monitoring")
+
+    assert response.status_code == 422
+    body = monitoring_response.json()
+    assert body["requests"]["errors"] == 1
+    assert body["data_quality"]["errors"] >= 1
+    assert body["data_quality"]["by_category"]["missing_field"] >= 1
+    assert body["data_quality"]["by_category"]["invalid_type"] >= 1
+
+
+def test_prediction_failure_is_counted_without_breaking_monitoring(monkeypatch):
+    configure_fake_loader(monkeypatch)
+    monkeypatch.setattr(model_loader, "predict", lambda transaction: (_ for _ in ()).throw(RuntimeError("controlled")))
+    with TestClient(app) as client:
+        response = client.post("/predict", json=VALID_TRANSACTION)
+        monitoring_response = client.get("/monitoring")
+
+    assert response.status_code == 500
+    assert monitoring_response.status_code == 200
+    assert monitoring_response.json()["requests"]["errors"] == 1
+    assert monitoring_response.json()["predictions"]["total"] == 0
