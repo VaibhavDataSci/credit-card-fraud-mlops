@@ -39,6 +39,116 @@ Phase 6 integrated **MLflow Experiment Tracking** (`src/models/tracking.py`).
 Phase 7 implemented **Model Comparison & Selection** — selected `scale_weight_only` at operating threshold `0.90` as deployment candidate.
 Phase 8 implemented **MLflow Model Registry** (`CreditCardFraudDetector` with `@candidate` and `@champion` aliases) and a fully reproducible 5-stage **DVC Pipeline** (`dvc.yaml`).
 
+Phase 9 implements the FastAPI inference service in `app/`. It loads the validated Champion pipeline directly from MLflow, applies the existing feature engineering, and uses the selected `0.90` operating threshold. The API does not load the local Joblib model artifact.
+
+## Phase 10 — Docker Containerization
+
+The inference-only Docker image packages the FastAPI service without the large raw dataset, training artifacts, notebooks, reports, tests, or local MLflow store. Compose mounts the existing local `mlruns/` tracking metadata read-only and exposes the same directory at the absolute artifact path recorded by the local registry. That second mount is writable because MLflow generates `registered_model_meta` beside the artifact while loading the registered model. This is intended for local development; it does not introduce a cloud MLflow server.
+
+### Build
+
+```bash
+docker build -t credit-card-fraud-api:phase10 .
+```
+
+### Run
+
+```bash
+docker compose up -d
+```
+
+### Check containers and logs
+
+```bash
+docker compose ps
+docker compose logs api
+```
+
+### API
+
+`http://127.0.0.1:8000`
+
+Swagger: `http://127.0.0.1:8000/docs`  
+ReDoc: `http://127.0.0.1:8000/redoc`
+
+### Stop
+
+```bash
+docker compose down
+```
+
+The container runs the existing inference flow only:
+
+```text
+Docker Container
+    ↓
+FastAPI Application
+    ↓
+Model Loader
+    ↓
+MLflow Registry
+    ↓
+CreditCardFraudDetector@champion
+    ↓
+Prediction → Fraud Probability → Threshold 0.90 → Fraud / Not Fraud
+```
+
+## Phase 9 — FastAPI Model Deployment
+
+### Start API
+
+```bash
+uvicorn app.main:app --reload
+```
+
+Swagger UI is available at `/docs`; ReDoc is available at `/redoc`.
+
+### Endpoints
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| GET | `/health` | Report service and Champion load status |
+| POST | `/predict` | Predict one transaction |
+| GET | `/model-info` | Return non-sensitive Champion metadata |
+
+Champion model: `CreditCardFraudDetector@champion`  
+Operating threshold: `0.90`
+
+Example request:
+
+```json
+{
+    "type": "TRANSFER",
+    "amount": 1000.0,
+    "oldbalanceOrg": 1000.0,
+    "newbalanceOrig": 0.0,
+    "oldbalanceDest": 0.0,
+    "newbalanceDest": 1000.0
+}
+```
+
+### Phase 9 Architecture
+
+```text
+Client
+    ↓
+FastAPI
+    ↓
+MLflow Model Registry
+    ↓
+CreditCardFraudDetector@champion
+    ↓
+Existing feature engineering + fitted preprocessing
+    ↓
+XGBoost
+    ↓
+Fraud probability
+    ↓
+Threshold 0.90
+    ↓
+Fraud / Not Fraud
+```
+
 ---
 
 ## Phase 8 — MLflow Model Registry & Reproducible DVC Pipeline

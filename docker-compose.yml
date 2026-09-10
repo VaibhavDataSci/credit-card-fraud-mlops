@@ -1,0 +1,14 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: credit-card-fraud-api:phase10
+    environment:
+      MLFLOW_ALLOW_FILE_STORE: "true"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./mlruns:/app/mlruns:ro
+      - ./mlruns:/Users/VAIBHAV/Desktop/credit-card-fraud-mlops/mlruns
+    restart: "no"
