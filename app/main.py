@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.responses import Response
 from prometheus_client import CONTENT_TYPE_LATEST
 
@@ -43,6 +43,12 @@ app = FastAPI(
     version="9.0.0",
     lifespan=lifespan,
 )
+
+
+@app.get("/", include_in_schema=False)
+def root() -> RedirectResponse:
+    """Send browser users to the interactive API documentation."""
+    return RedirectResponse(url="/docs")
 
 
 @app.middleware("http")

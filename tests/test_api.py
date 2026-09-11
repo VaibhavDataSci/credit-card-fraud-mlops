@@ -46,6 +46,15 @@ def test_health_when_model_loads(monkeypatch):
     assert response.json() == {"status": "healthy", "model_loaded": True}
 
 
+def test_root_redirects_to_swagger(monkeypatch):
+    configure_fake_loader(monkeypatch)
+    with TestClient(app) as client:
+        response = client.get("/", follow_redirects=False)
+
+    assert response.status_code == 307
+    assert response.headers["location"] == "/docs"
+
+
 def test_model_info_exposes_champion_configuration(monkeypatch):
     configure_fake_loader(monkeypatch)
     with TestClient(app) as client:
