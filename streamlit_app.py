@@ -38,7 +38,18 @@ st.markdown(
     .risk-label { color: #60708a; font-size: .9rem; font-weight: 650; }
     .risk-value { color: #172033; font-size: 2rem; font-weight: 800; margin: .15rem 0 .7rem; }
     .explanation { color: #4b5c76; font-size: .96rem; line-height: 1.5; margin-top: .9rem; }
-    .stButton > button { border-radius: 10px; font-weight: 700; }
+    .stButton > button {
+        background: #ffffff;
+        color: #334155;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        font-weight: 700;
+    }
+    .stButton > button:hover {
+        background: #f1f5f9;
+        color: #172033;
+        border-color: #94a3b8;
+    }
     </style>
     """,
     unsafe_allow_html=True,
