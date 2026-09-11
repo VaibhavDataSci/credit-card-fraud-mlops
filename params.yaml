@@ -88,6 +88,11 @@ mlflow:
   champion_alias: champion
   candidate_alias: candidate
 
+promotion:
+  min_recall_delta: 0.0
+  min_pr_auc_delta: 0.0
+  min_f1_delta: 0.001
+
 experiments:
   baseline_smote_scale_weight:
     use_smote: true

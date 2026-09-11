@@ -1,0 +1,22 @@
+[
+  {
+    "candidate_run_id": "e925576c55044b978342f3b914c3c5ed",
+    "candidate_version": "2",
+    "champion_version_before": "1",
+    "decision": "APPROVED",
+    "operator": "approver",
+    "timestamp": "2026-09-11T06:04:23.022567+00:00",
+    "reason": "Validated candidate",
+    "promotion_result": "PROMOTED"
+  },
+  {
+    "candidate_run_id": "6bc8da0483c548418560cfad63ca9087",
+    "candidate_version": "3",
+    "champion_version_before": "2",
+    "decision": "REJECTED",
+    "operator": "approver",
+    "timestamp": "2026-09-11T06:04:24.791542+00:00",
+    "reason": "Manual review rejected",
+    "promotion_result": "REJECTED"
+  }
+]

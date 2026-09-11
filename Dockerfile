@@ -16,7 +16,10 @@ COPY --chown=appuser:appuser app ./app
 COPY --chown=appuser:appuser src/__init__.py ./src/__init__.py
 COPY --chown=appuser:appuser src/features ./src/features
 COPY --chown=appuser:appuser src/monitoring ./src/monitoring
+COPY --chown=appuser:appuser src/models ./src/models
 COPY --chown=appuser:appuser scripts/detect_drift.py ./scripts/detect_drift.py
+COPY --chown=appuser:appuser scripts/retrain_model.py ./scripts/retrain_model.py
+COPY --chown=appuser:appuser scripts/approve_model.py ./scripts/approve_model.py
 
 USER appuser
 

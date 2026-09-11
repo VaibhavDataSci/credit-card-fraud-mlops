@@ -155,6 +155,53 @@ The `CI` workflow in `.github/workflows/ci.yml` runs on pushes to `main` and pul
 
 The workflow does not run DVC, process the raw dataset, retrain models, or modify the MLflow Champion alias. The local filesystem MLflow registry is intentionally not committed, so a clean GitHub runner verifies the container and API contract without fabricating a Champion prediction. When a local `mlruns/` artifact is available, the smoke test also verifies the real `/predict` response.
 
+## Retraining and Model Promotion
+
+Phase 15 provides a controlled workflow for new labeled data:
+
+```text
+New Data / Drift Alert
+    ↓
+DVC Versioning (`dvc add data/raw/new_data.csv`)
+    ↓
+Validation → Preprocessing → Feature Engineering
+    ↓
+Training → MLflow Candidate
+    ↓
+Candidate Evaluation → Champion Comparison
+    ↓
+Promote / Reject
+```
+
+Run candidate creation and comparison with:
+
+```bash
+python scripts/retrain_model.py --new-data data/raw/new_data.csv
+```
+
+Promotion requires the explicit `--promote` flag and all configured gates in `params.yaml`: no recall or PR-AUC regression, a measurable minimum F1 improvement, valid probabilities, and no false-negative increase. The default threshold remains `0.90` and the strategy remains `scale_weight_only`.
+
+Drift does not automatically replace the model. Candidate models must pass validation and comparison before promotion. Rejected candidates leave the current Champion unchanged, and previous Champion versions remain registered for rollback by an operator. Decisions are written to `reports/model/promotion_decision.json` and `reports/model/promotion_decision.md`.
+
+## Human-in-the-Loop Model Promotion
+
+Phase 16 adds an explicit operator gate:
+
+```text
+Drift → Investigation → Retraining → Candidate → Evaluation
+    → Comparison → Promotion Report → Human Approval → Promote / Reject
+```
+
+Automated evaluation recommends whether a candidate is suitable, but the Champion is not changed until an operator explicitly approves the candidate. A passing candidate remains `PENDING_APPROVAL`; it is not promoted by retraining or API startup.
+
+Review and approve a pending report with:
+
+```bash
+python scripts/approve_model.py --report reports/model/promotion_decision.json --operator <operator-name>
+```
+
+The CLI requires the exact input `APPROVE`; `yes`, `y`, `true`, `1`, and other values cancel safely. `REJECT` records the operator and reason, leaves the Champion unchanged, and retains the candidate for investigation. Approval records are appended to `reports/model/approval_history.json` and summarized in `reports/model/approval_decision.md`. Before promotion, candidate identity and the current Champion version are rechecked to prevent stale approvals. Previous Champion versions remain registered for rollback.
+
 ## Phase 14 — Drift Detection
 
 Drift detection uses Evidently `0.7.21` through `src/monitoring/drift.py` and `scripts/detect_drift.py`. The reference is the existing DVC pipeline output `data/processed/cleaned.parquet`; drift compares the nine production feature columns and excludes the target `isFraud`. Reference and current data are bounded to a configurable sample (default `10,000` rows), so drift analysis does not process the full raw dataset.
