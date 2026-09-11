@@ -1,495 +1,322 @@
-# Credit Card Fraud Detection — MLOps Pipeline
+# Credit Card Fraud Detection MLOps
 
-## Project Overview
-
-This repository contains an end-to-end, production-ready **Credit Card Fraud Detection MLOps pipeline** built with XGBoost.
-
-The objective of this project is to implement a robust, reproducible, deployable, and continuously monitored machine learning system for financial fraud detection.
-
-The full MLOps workflow will incorporate:
-* **Data Versioning**: DVC dataset tracking and remote storage reproducibility.
-* **Data Validation & Quality**: Automated schema, data type, nulls, duplicates, and numerical sanity checks (`src/data/validation.py`).
-* **Exploratory Data Analysis**: Data distribution, class imbalance, and pattern visualizations (`reports/eda/`).
-* **Preprocessing & Feature Engineering**: Leak-free, vectorized feature engineering and column transformations (`src/features/feature_engineering.py`, `src/data/preprocessing.py`).
-* **Model Training**: Baseline XGBoost classifier training with `ImbPipeline` (scaling + One-Hot Encoding + training-only SMOTE oversampling).
-* **Model Evaluation**: Comprehensive metrics evaluation (Precision, Recall, F1, ROC-AUC, PR-AUC) and diagnostic plots (`reports/model/`).
-* **Data & Pipeline Versioning**: DVC pipeline (`dvc.yaml`) for dataset lineage and execution reproducibility.
-* **Experiment Tracking & Registry**: MLflow for metrics, parameters, artifacts logging, and model lifecycle management.
-* **API Serving**: FastAPI REST endpoints for model inference and health monitoring.
-* **Containerization**: Docker & Docker Compose for isolated application deployment.
-* **Automated Testing**: Unit and integration tests powered by Pytest.
-* **CI/CD Automation**: GitHub Actions for automated integration, testing, and container build.
-* **Monitoring & Drift Detection**: Real-time performance tracking and data drift detection using Evidently.
-* **Retraining and Approval**: Drift investigation, candidate evaluation, and explicit human approval before any Champion change.
+An end-to-end, production-ready MLOps pipeline for detecting financial transaction fraud using XGBoost. The system covers the full model lifecycle — from raw data ingestion and validation through training, experiment tracking, registry management, and live inference. Transactions are served through a FastAPI REST API and a Streamlit web application designed for bank employees.
 
 ---
 
-## Current Status
+## Overview
+
+Financial fraud is rare but costly. In this dataset, fraudulent transactions represent less than 0.2% of all activity, making class imbalance the central modelling challenge. The system trains an XGBoost classifier that produces a fraud probability for each transaction; a calibrated operating threshold converts that probability into a binary fraud / not-fraud decision.
+
+The pipeline is fully reproducible via DVC and MLflow. A validated Champion model is registered in the MLflow Model Registry and loaded at API startup. Operational monitoring and Evidently-based drift detection run continuously; when drift is detected, a controlled retraining and human-approval workflow governs whether the Champion is replaced.
+
+---
+
+## Key Features
+
+- **Transaction fraud prediction** — probability score and binary classification per transaction
+- **Streamlit UI** — browser-based interface for bank employees to check individual transactions
+- **FastAPI inference API** — REST endpoints for health, prediction, model info, and monitoring
+- **XGBoost classifier** — trained with `scale_pos_weight` to handle severe class imbalance
+- **Feature engineering** — balance differentials and amount-ratio features derived from raw fields
+- **MLflow experiment tracking** — parameters, metrics, and artifacts logged per run
+- **MLflow Model Registry** — `CreditCardFraudDetector` with `@champion` and `@candidate` aliases
+- **DVC dataset and pipeline versioning** — 5-stage reproducible pipeline (`dvc.yaml`)
+- **Automated data validation** — schema, type, null, duplicate, and numerical sanity checks
+- **Model evaluation and comparison** — Precision, Recall, F1, ROC-AUC, PR-AUC across strategies and thresholds
+- **Operational monitoring** — in-process request, latency, and prediction-distribution metrics
+- **Prometheus + Grafana** — metrics exposition and pre-built dashboard
+- **Drift detection** — Evidently-based feature-level drift analysis against the reference dataset
+- **Retraining workflow** — candidate creation, evaluation, and comparison against the Champion
+- **Human approval gate** — explicit operator approval required before any drift-driven candidate replaces the Champion
+- **Automated tests** — Pytest suite covering data, features, models, API, monitoring, and drift
+- **Docker + Docker Compose** — containerised API, Prometheus, and Grafana
+- **GitHub Actions CI** — dependency install, compile check, full test suite, Docker build, and API smoke test
+
+---
+
+## Architecture
+
+### Initial Model Lifecycle
+
+```mermaid
+flowchart TD
+    A[Raw Dataset] --> B[DVC — Data Versioning]
+    B --> C[Data Validation]
+    C --> D[Preprocessing + Feature Engineering]
+    D --> E[Model Training — XGBoost]
+    E --> F[MLflow Experiment Tracking]
+    F --> G[Model Evaluation & Comparison]
+    G --> H[MLflow Model Registry]
+    H --> I[Champion Model]
+    I --> J[FastAPI Inference API]
+    J --> K[Streamlit — Bank Employee UI]
+```
+
+Human approval is **not** part of this path. The initial baseline model is validated and registered as Champion automatically.
+
+### Production Monitoring / Drift Lifecycle
+
+```mermaid
+flowchart TD
+    A[Production Predictions] --> B[Operational Monitoring]
+    B --> C[Drift Detection — Evidently]
+    C --> D{Drift Detected?}
+    D -- No --> B
+    D -- Yes --> E[Investigation]
+    E --> F[Retraining — New Candidate]
+    F --> G[Candidate Evaluation]
+    G --> H[Comparison vs Champion]
+    H --> I[Human Approval]
+    I -- APPROVE --> J[Promote Candidate to Champion]
+    I -- REJECT --> K[Keep Existing Champion]
+```
+
+Human approval is **only** required when a drift-driven retraining produces a candidate that may replace the existing Champion. Drift does not automatically replace the production Champion model.
+
+---
+
+## Component Responsibilities
+
+| Component | Purpose |
+|---|---|
+| DVC | Dataset and pipeline reproducibility; tracks raw data and pipeline stage outputs |
+| Data Validation | Schema, type, null, duplicate, and numerical sanity checks on raw input |
+| Feature Engineering | Derives balance-differential and amount-ratio features from raw transaction fields |
+| XGBoost | Binary fraud classifier trained with `scale_pos_weight` for class imbalance |
+| MLflow | Experiment tracking — logs parameters, metrics, and model artifacts per run |
+| MLflow Model Registry | Stores registered model versions; manages `@champion` and `@candidate` aliases |
+| FastAPI | Production inference API — `/predict`, `/health`, `/model-info`, `/monitoring`, `/metrics` |
+| Streamlit | Browser UI for bank employees to check individual transactions for fraud risk |
+| Prometheus | Scrapes `/metrics` and stores time-series operational data |
+| Grafana | Pre-provisioned dashboard for request rate, error rate, latency, and fraud distribution |
+| Drift Detection | Evidently-based feature-level drift comparison against the reference dataset |
+| Docker / Compose | Containerises the API, Prometheus, and Grafana for consistent local deployment |
+| GitHub Actions | CI — installs dependencies, compiles code, runs tests, builds Docker image, smoke-tests API |
+
+---
+
+## Project Structure
 
 ```text
-Current Development Phase: Phase 8 — MLflow Model Registry & Reproducible DVC Pipeline
+credit-card-fraud-mlops/
+├── app/                        # FastAPI application
+│   ├── main.py                 # Routes: /health, /predict, /model-info, /monitoring, /metrics
+│   ├── model_loader.py         # Loads CreditCardFraudDetector@champion from MLflow
+│   ├── monitoring.py           # In-process operational metrics state
+│   ├── prometheus_metrics.py   # Prometheus counters and histograms
+│   └── schemas.py              # Pydantic request/response models
+├── src/                        # Core Python package
+│   ├── config.py               # Environment variable configuration
+│   ├── data/
+│   │   ├── validation.py       # Data validation logic
+│   │   └── preprocessing.py    # Preprocessing transformations
+│   ├── features/
+│   │   └── feature_engineering.py
+│   ├── models/
+│   │   ├── train.py            # Model training
+│   │   ├── evaluate.py         # Metrics evaluation
+│   │   ├── tracking.py         # MLflow run helpers
+│   │   ├── compare.py          # Champion vs candidate comparison
+│   │   ├── registry.py         # Model registration and alias management
+│   │   ├── validate.py         # Pre-promotion validation gates
+│   │   ├── retraining.py       # Retraining orchestration
+│   │   ├── promotion.py        # Candidate promotion logic
+│   │   └── approval.py         # Human approval record management
+│   └── monitoring/
+│       └── drift.py            # Evidently drift detection
+├── scripts/                    # Executable pipeline and operational scripts
+│   ├── validate_data.py
+│   ├── preprocess_data.py
+│   ├── create_features.py
+│   ├── train_model.py
+│   ├── evaluate_and_register.py
+│   ├── compare_models.py
+│   ├── detect_drift.py
+│   ├── retrain_model.py
+│   └── approve_model.py
+├── tests/                      # Pytest test suite
+├── notebooks/                  # Exploratory analysis notebooks
+├── data/
+│   ├── raw/                    # Immutable raw dataset (DVC-tracked)
+│   └── processed/              # Preprocessed and feature-engineered parquet files
+├── models/                     # Trained model artifact (xgboost_fraud_model.joblib)
+├── reports/
+│   ├── model/                  # Metrics, confusion matrix, ROC/PR curves, selection report
+│   ├── drift/                  # Drift HTML report and JSON summary
+│   ├── eda/                    # EDA visualisations
+│   ├── validation/             # Data validation report
+│   └── preprocessing/          # Preprocessing and feature engineering reports
+├── monitoring/
+│   ├── prometheus/prometheus.yml
+│   └── grafana/                # Provisioning config and dashboard JSON
+├── .github/workflows/ci.yml    # GitHub Actions CI workflow
+├── streamlit_app.py            # Streamlit bank employee UI
+├── dvc.yaml                    # 5-stage DVC pipeline definition
+├── dvc.lock                    # Locked pipeline state
+├── params.yaml                 # All pipeline and model configuration
+├── Dockerfile                  # Inference-only Docker image
+├── docker-compose.yml          # API + Prometheus + Grafana stack
+└── requirements.txt            # Full Python dependencies
 ```
 
-Phase 1 established the repository foundation and environment configuration.
-Phase 2 initialized **DVC** dataset versioning and remote storage.
-Phase 3 implemented **Automated Data Validation** and **Exploratory Data Analysis**.
-Phase 4 implemented **Preprocessing & Feature Engineering** (`data/processed/cleaned.parquet`).
-Phase 5 implemented **Model Training & Evaluation** (`src/models/train.py`, `src/models/evaluate.py`, `scripts/train_model.py`).
-Phase 6 integrated **MLflow Experiment Tracking** (`src/models/tracking.py`).
-Phase 7 implemented **Model Comparison & Selection** — selected `scale_weight_only` at operating threshold `0.90` as deployment candidate.
-Phase 8 implemented **MLflow Model Registry** (`CreditCardFraudDetector` with `@candidate` and `@champion` aliases) and a fully reproducible 5-stage **DVC Pipeline** (`dvc.yaml`). The normal initial lifecycle ends at the validated Champion model served by FastAPI; human approval is reserved for drift-triggered retraining and candidate replacement.
+---
 
-Phase 9 implements the FastAPI inference service in `app/`. It loads the validated Champion pipeline directly from MLflow, applies the existing feature engineering, and uses the selected `0.90` operating threshold. The API does not load the local Joblib model artifact.
+## Model & Prediction
 
-## Phase 10 — Docker Containerization
+**Model type**: XGBoost binary classifier wrapped in a scikit-learn `ImbPipeline` (StandardScaler + OneHotEncoder + XGBoost).
 
-The inference-only Docker image packages the FastAPI service without the large raw dataset, training artifacts, notebooks, reports, tests, or local MLflow store. Compose mounts the existing local `mlruns/` tracking metadata read-only and exposes the same directory at the absolute artifact path recorded by the local registry. That second mount is writable because MLflow generates `registered_model_meta` beside the artifact while loading the registered model. This is intended for local development; it does not introduce a cloud MLflow server.
+**Target variable**: `isFraud` (0 = legitimate, 1 = fraudulent).
 
-### Build
+**Raw input fields** (submitted by the user or API caller):
+
+| Field | Description |
+|---|---|
+| `type` | Transaction type: `CASH_IN`, `CASH_OUT`, `DEBIT`, `PAYMENT`, `TRANSFER` |
+| `amount` | Transaction amount (≥ 0) |
+| `oldbalanceOrg` | Sender's balance before the transaction |
+| `newbalanceOrig` | Sender's balance after the transaction |
+| `oldbalanceDest` | Receiver's balance before the transaction |
+| `newbalanceDest` | Receiver's balance after the transaction |
+
+**Engineered features** derived automatically before inference:
+
+- `balance_diff_orig` — change in sender's balance
+- `balance_diff_dest` — change in receiver's balance
+- `amount_ratio_orig` — transaction amount relative to sender's opening balance
+
+**Prediction output**: a fraud probability between 0 and 1. If the probability meets or exceeds the operating threshold of **0.90**, the transaction is classified as fraud.
+
+---
+
+## Model Performance
+
+Three class-imbalance strategies were evaluated. The selected strategy is `scale_weight_only` (XGBoost `scale_pos_weight`, no SMOTE) at operating threshold **0.90**.
+
+### Strategy Comparison
+
+| Strategy | Precision | Recall | F1 | PR-AUC | FP | FN |
+|---|---|---|---|---|---|---|
+| baseline_smote_scale_weight | 0.032 | 0.999 | 0.062 | 0.987 | 74,894 | 3 |
+| smote_only | 0.794 | 0.998 | 0.884 | 0.989 | 638 | 5 |
+| **scale_weight_only** ✓ | **0.869** | **0.996** | **0.929** | **0.989** | **369** | **9** |
+
+### Selected Model at Threshold 0.90
+
+| Metric | Value |
+|---|---|
+| Precision | 0.9099 |
+| Recall | 0.9959 |
+| F1 Score | 0.9510 |
+| ROC-AUC | 0.9997 |
+| PR-AUC | 0.9889 |
+| True Positives | 2,455 |
+| False Positives | 243 |
+| False Negatives | 10 |
+| True Negatives | 1,905,953 |
+
+> **Why not accuracy?** With fewer than 0.2% fraudulent transactions, a model that predicts "not fraud" for every transaction achieves ~99.8% accuracy while catching zero fraud cases. Recall (catching actual fraud) and PR-AUC (performance across the full precision-recall curve) are the primary metrics for this problem.
+
+---
+
+## MLflow
+
+MLflow tracks every training run and manages the model registry.
+
+```
+Training Run
+  → Experiment Tracking (parameters, metrics, artifacts)
+  → Model Registration → CreditCardFraudDetector
+  → @champion alias assigned to the validated baseline
+```
+
+- **Tracking URI**: `file:./mlruns` (local file store)
+- **Experiment**: `fraud_detection_experiments`
+- **Registered model**: `CreditCardFraudDetector`
+- **Champion alias**: `@champion`
+- **Candidate alias**: `@candidate` (used only during drift-driven retraining)
+
+The API loads the Champion at startup via:
+
+```python
+mlflow.sklearn.load_model("models:/CreditCardFraudDetector@champion")
+```
+
+Human approval is **not** required for the initial baseline registration. It applies only when a drift-driven candidate is proposed to replace the existing Champion.
+
+Launch the MLflow UI:
 
 ```bash
-docker build -t credit-card-fraud-api:phase10 .
+MLFLOW_ALLOW_FILE_STORE=true mlflow ui
 ```
 
-### Run
+Then open `http://127.0.0.1:5000`.
+
+---
+
+## DVC
+
+DVC versions the raw dataset and defines a 5-stage reproducible pipeline.
+
+**Versioned data**:
+- `data/raw/AIML DATASET.csv` — 6,362,620 rows × 11 columns
+- `data/processed/preprocessed.parquet`
+- `data/processed/cleaned.parquet`
+
+**Pipeline stages** (`dvc.yaml`):
+
+```
+validate   → preprocess   → features   → train   → evaluate
+```
+
+| Stage | Script | Output |
+|---|---|---|
+| `validate` | `scripts/validate_data.py` | `reports/validation/data_validation_report.json` |
+| `preprocess` | `scripts/preprocess_data.py` | `data/processed/preprocessed.parquet` |
+| `features` | `scripts/create_features.py` | `data/processed/cleaned.parquet` |
+| `train` | `scripts/train_model.py` | `models/xgboost_fraud_model.joblib` |
+| `evaluate` | `scripts/evaluate_and_register.py` | `reports/model/metrics.json`, `reports/model/model_metadata.json` |
 
 ```bash
-docker compose up -d
+dvc dag          # visualise the pipeline DAG
+dvc status       # check which stages are out of date
+dvc repro        # reproduce the full pipeline end-to-end
 ```
 
-### Check containers and logs
+---
 
-```bash
-docker compose ps
-docker compose logs api
-```
+## Monitoring & Drift Detection
 
-### API
+### Operational Monitoring
 
-`http://127.0.0.1:8000`
+The API tracks in-process aggregate metrics accessible at `GET /monitoring`:
 
-Swagger: `http://127.0.0.1:8000/docs`  
-ReDoc: `http://127.0.0.1:8000/redoc`
+- Request count, latency, and response status distribution
+- Error count and error rate
+- Fraud / not-fraud prediction counts and probability statistics
+- Predictions below and at/above the 0.90 threshold
+- Data-quality validation errors by category
 
-### Stop
+Prometheus scrapes `GET /metrics` (Prometheus exposition format). Grafana provisions a pre-built dashboard covering request rate, error rate, p95 latency, fraud prediction rate, probability distribution, and Champion model information.
 
-```bash
-docker compose down
-```
+### Drift Detection
 
-The container runs the existing inference flow only:
-
-```text
-Docker Container
-    ↓
-FastAPI Application
-    ↓
-Model Loader
-    ↓
-MLflow Registry
-    ↓
-CreditCardFraudDetector@champion
-    ↓
-Prediction → Fraud Probability → Threshold 0.90 → Fraud / Not Fraud
-```
-
-## Phase 9 — FastAPI Model Deployment
-
-### Start API
-
-```bash
-uvicorn app.main:app --reload
-```
-
-Swagger UI is available at `/docs`; ReDoc is available at `/redoc`.
-
-### Endpoints
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| GET | `/health` | Report service and Champion load status |
-| POST | `/predict` | Predict one transaction |
-| GET | `/model-info` | Return non-sensitive Champion metadata |
-
-Champion model: `CreditCardFraudDetector@champion`  
-Operating threshold: `0.90`
-
-Example request:
-
-```json
-{
-    "type": "TRANSFER",
-    "amount": 1000.0,
-    "oldbalanceOrg": 1000.0,
-    "newbalanceOrig": 0.0,
-    "oldbalanceDest": 0.0,
-    "newbalanceDest": 1000.0
-}
-```
-
-### Phase 9 Architecture
-
-```text
-Raw Dataset
-    ↓
-DVC — Data Versioning
-    ↓
-Data Validation
-    ↓
-Preprocessing + Feature Engineering
-    ↓
-Model Training (XGBoost)
-    ↓
-MLflow — Experiment Tracking
-    ↓
-Model Evaluation & Comparison
-    ↓
-MLflow Model Registry
-    ↓
-Champion Model
-    ↓
-Production API (FastAPI)
-    ↓
-Streamlit — Bank Employee UI
-```
-
-Human approval is not part of this normal initial training-to-production path. It is used only when drift leads to retraining and a new candidate needs promotion.
-
-## Phase 12 — GitHub Actions CI/CD
-
-The `CI` workflow in `.github/workflows/ci.yml` runs on pushes to `main` and pull requests targeting `main`. It installs the existing `requirements.txt`, compiles the application, runs `pytest -q`, builds the existing Docker image, and smoke-tests the container's health, model-info, Swagger, and ReDoc endpoints with a bounded readiness loop.
-
-The workflow does not run DVC, process the raw dataset, retrain models, or modify the MLflow Champion alias. The local filesystem MLflow registry is intentionally not committed, so a clean GitHub runner verifies the container and API contract without fabricating a Champion prediction. When a local `mlruns/` artifact is available, the smoke test also verifies the real `/predict` response.
-
-## Retraining and Model Promotion
-
-Phase 15 provides a controlled workflow for new labeled data:
-
-```text
-New Data / Drift Alert
-    ↓
-DVC Versioning (`dvc add data/raw/new_data.csv`)
-    ↓
-Validation → Preprocessing → Feature Engineering
-    ↓
-Training → MLflow Candidate
-    ↓
-Candidate Evaluation → Champion Comparison
-    ↓
-Promotion Report → Human Approval → Promote / Reject
-```
-
-Run candidate creation and comparison with:
-
-```bash
-python scripts/retrain_model.py --new-data data/raw/new_data.csv
-```
-
-Promotion requires the explicit `--promote` flag and all configured gates in `params.yaml`: no recall or PR-AUC regression, a measurable minimum F1 improvement, valid probabilities, and no false-negative increase. The default threshold remains `0.90` and the strategy remains `scale_weight_only`.
-
-Drift does not automatically replace the model. Candidate models must pass validation and comparison before entering `PENDING_APPROVAL`. Human approval is required only in this drift/retraining path. Rejected candidates leave the current Champion unchanged, and previous Champion versions remain registered for rollback by an operator. Decisions are written to `reports/model/promotion_decision.json` and `reports/model/promotion_decision.md`.
-
-## Human-in-the-Loop Model Promotion
-
-Phase 16 adds an explicit operator gate:
-
-```text
-Drift → Investigation → Retraining → Candidate → Evaluation
-    → Comparison → Promotion Report → Human Approval → Promote / Reject
-```
-
-Automated evaluation recommends whether a candidate is suitable, but the Champion is not changed until an operator explicitly approves the candidate. A passing candidate remains `PENDING_APPROVAL`; it is not promoted by retraining or API startup.
-
-Review and approve a pending report with:
-
-```bash
-python scripts/approve_model.py --report reports/model/promotion_decision.json --operator <operator-name>
-```
-
-The CLI requires the exact input `APPROVE`; `yes`, `y`, `true`, `1`, and other values cancel safely. `REJECT` records the operator and reason, leaves the Champion unchanged, and retains the candidate for investigation. Approval records are appended to `reports/model/approval_history.json` and summarized in `reports/model/approval_decision.md`. Before promotion, candidate identity and the current Champion version are rechecked to prevent stale approvals. Previous Champion versions remain registered for rollback.
-
-## Phase 17 — Prometheus + Grafana Monitoring
-
-The observability stack is:
-
-```text
-FastAPI /metrics → Prometheus → Grafana
-```
-
-Prometheus metrics include request counters, request-duration histograms, 4xx/5xx errors, fraud/non-fraud prediction counters, fraud-probability buckets, data-quality errors, and low-cardinality Champion model information. The existing `/monitoring` endpoint remains available for the human-readable process-local summary.
-
-Local URLs:
-
-- FastAPI: `http://localhost:8000`
-- Swagger: `http://localhost:8000/docs`
-- Prometheus: `http://localhost:9090`
-- Grafana: `http://localhost:3001` when host port `3000` is occupied
-
-Grafana provisions a Prometheus datasource and the `Credit Card Fraud API` dashboard automatically. Dashboard panels cover request rate, error rate, p95 latency, fraud prediction rate, fraud/non-fraud predictions, probability distribution, data-quality errors, and Champion model information. Set `GRAFANA_ADMIN_USER` and `GRAFANA_ADMIN_PASSWORD` for local credentials; defaults are intended only for local development.
-
-Monitoring is observational. Monitoring and Grafana alerts do not automatically retrain or promote models, and the Phase 16 human approval workflow remains the final promotion gate.
-
-## Phase 14 — Drift Detection
-
-Drift detection uses Evidently `0.7.21` through `src/monitoring/drift.py` and `scripts/detect_drift.py`. The reference is the existing DVC pipeline output `data/processed/cleaned.parquet`; drift compares the nine production feature columns and excludes the target `isFraud`. Reference and current data are bounded to a configurable sample (default `10,000` rows), so drift analysis does not process the full raw dataset.
-
-Run a comparison with:
+Drift detection compares incoming production data against the reference dataset (`data/processed/cleaned.parquet`) using Evidently across the nine production feature columns.
 
 ```bash
 python scripts/detect_drift.py --current path/to/current.parquet
 ```
 
-Reports are written to `reports/drift/drift_report.html` and `reports/drift/drift_summary.json`. Evidently's feature-level methods and `drift_share_threshold=0.5` determine whether overall dataset drift is detected. Missingness, schema, type, and finite-value checks run before comparison.
+Reports are written to `reports/drift/drift_report.html` and `reports/drift/drift_summary.json`.
 
-Drift detection is an investigation signal, not an automatic model replacement trigger. It does not retrain, register, promote, replace, or alter `CreditCardFraudDetector@champion`, its `scale_weight_only` strategy, or the `0.90` threshold. Reports are offline artifacts; no drift endpoint or prediction-path coupling was added.
-
-## Phase 13 — Model/API Monitoring
-
-The FastAPI service exposes `GET /monitoring` with lightweight aggregate metrics for:
-
-- API latency
-- Request count and response status
-- Error count and error rate
-- Fraud/non-fraud prediction distribution and probability statistics
-- Predictions below or at/above the configured `0.90` threshold
-- Data-quality validation errors by controlled category
-
-Monitoring stores aggregate values in process-local memory only. It does not persist request bodies, account identifiers, `nameOrig`, or `nameDest`, and it does not use high-cardinality request values as labels. Counters reset when the process restarts, and multiple replicas would require a shared metrics backend. A future phase can connect this monitoring interface to Prometheus/Grafana or another centralized platform without changing prediction behavior.
+**Drift does not automatically replace the production Champion model.** Detection is an investigation signal that initiates the retraining and human-approval workflow described below.
 
 ---
 
-## Phase 8 — MLflow Model Registry & Reproducible DVC Pipeline
+## Running the Project
 
-### 1. MLflow Model Registry Lifecycle
+### 1. Environment Setup
 
-Registered model name: `CreditCardFraudDetector`
-
-Initial baseline registration:
-```text
-Validated Model
-    ↓
-MLflow Model Registry
-    ↓
-Champion Model
-```
-
-Drift / retraining:
-```text
-Drift Detection
-    ↓
-Investigation
-    ↓
-Retraining
-    ↓
-Candidate Model
-    ↓
-Evaluation
-    ↓
-PENDING_APPROVAL
-    ↓
-Human Approval
-    ├── APPROVE → Promote Candidate to Champion
-    └── REJECT → Keep Existing Champion
-```
-
-Human Approval is required only when drift leads to retraining and a candidate model needs promotion. It is not part of the initial training and registration flow.
-
-- **Registry Module**: `src/models/registry.py` provides model registration, tag tracking, and alias management.
-- **Model Validation**: `src/models/validate.py` enforces metric checks, strategy validation (`scale_weight_only`), operating threshold check (`0.90`), model loadability, and inference verification prior to Champion promotion.
-- **Model URI**: Downstream components can load the validated champion model via:
-  ```python
-  import mlflow
-  model = mlflow.sklearn.load_model("models:/CreditCardFraudDetector@champion")
-  ```
-
-### 2. Reproducible DVC Pipeline (`dvc.yaml`)
-
-5-Stage Reproducible Pipeline:
-```text
-validate (scripts/validate_data.py)
-   ↓
-preprocess (scripts/preprocess_data.py)
-   ↓
-features (scripts/create_features.py)
-   ↓
-train (scripts/train_model.py)
-   ↓
-evaluate (scripts/evaluate_and_register.py)
-```
-
-Key DVC commands:
-```bash
-# Display pipeline DAG
-dvc dag
-# Reproduce full pipeline end-to-end
-dvc repro
-```
-
----
-
-## Dataset & Versioning
-
-### Dataset Details
-* **Raw Dataset**: `AIML DATASET.csv` (`data/raw/AIML DATASET.csv`, `6,362,620` rows × `11` columns)
-* **Preprocessed Dataset**: `preprocessed.parquet` (`data/processed/preprocessed.parquet`, `142.49 MB`)
-* **Cleaned Dataset**: `cleaned.parquet` (`data/processed/cleaned.parquet`, `6,362,620` rows × `10` columns, `249.57 MB`)
-* **Trained Model Artifact**: `models/xgboost_fraud_model.joblib` (`0.57 MB`)
-
-### Pipeline Execution Commands
-
-```bash
-# 1. Reproduce full pipeline end-to-end via DVC
-dvc repro
-
-# 2. View pipeline DAG graph
-dvc dag
-
-# 3. Check DVC pipeline status
-dvc status
-
-# 4. Launch MLflow UI to inspect Model Registry and experiments
-mlflow ui
-# Then open http://127.0.0.1:5000 in your browser
-
-# 5. Run full pytest test suite (36 passed)
-pytest -q
-```
-
----
-
-## Overall Architecture
-
-```text
-Raw Dataset
-    ↓
-DVC — Data Versioning
-    ↓
-Data Validation
-    ↓
-Preprocessing + Feature Engineering
-    ↓
-Model Training (XGBoost)
-    ↓
-MLflow — Experiment Tracking
-    ↓
-Model Evaluation & Comparison
-    ↓
-MLflow Model Registry
-    ↓
-Champion Model
-    ↓
-Production API (FastAPI)
-    ↓
-Streamlit — Bank Employee UI
-```
-
-### Drift / Retraining / Approval Workflow
-
-```text
-Production Data / Predictions
-    ↓
-Drift Detection
-    ↓
-Drift Detected?
-    ↓
-Investigation
-    ↓
-Retraining
-    ↓
-Candidate Model
-    ↓
-Model Evaluation
-    ↓
-Human Approval
-    ├── APPROVE → Promote Candidate to Champion
-    └── REJECT → Keep Existing Champion
-```
-
-Human approval appears only in the drift/retraining workflow. It is not part of the normal initial training → registry → production path.
-
----
-
-## Repository Structure
-
-```text
-credit-card-fraud-mlops/
-│
-├── .dvc/                   # DVC configuration & local storage remote
-│
-├── .github/
-│   └── workflows/          # GitHub Actions CI/CD workflows
-│
-├── data/
-│   ├── raw/                # Immutable raw datasets (tracked by DVC)
-│   └── processed/          # Cleaned & transformed datasets (cleaned.parquet)
-│
-├── models/                 # Model binary artifacts (xgboost_fraud_model.joblib)
-│
-├── notebooks/              # Exploratory notebooks
-│   ├── xgboost_experiments.ipynb
-│   └── phase3_data_validation_eda.ipynb
-│
-├── src/                    # Core Python package
-│   ├── __init__.py
-│   ├── config.py           # Centralized environment variable configuration
-│   ├── data/
-│   │   ├── validation.py   # Automated data validation module
-│   │   └── preprocessing.py# Data preprocessing module
-│   ├── features/
-│   │   └── feature_engineering.py # Feature engineering module
-│   ├── models/
-│   │   ├── train.py        # Model training module
-│   │   ├── evaluate.py     # Model evaluation module
-│   │   ├── tracking.py     # MLflow experiment tracking helper
-│   │   └── compare.py      # Model comparison, threshold analysis & selection
-│   └── monitoring/         # Data & model drift detection modules
-│
-├── app/                    # FastAPI application & API endpoints
-├── tests/                  # Pytest unit & integration tests
-│   ├── test_data_validation.py
-│   ├── test_feature_engineering.py
-│   ├── test_preprocessing.py
-│   ├── test_model_training.py
-│   ├── test_model_evaluation.py
-│   ├── test_mlflow_tracking.py
-│   └── test_model_comparison.py
-│
-├── configs/                # Environment & deployment configurations
-├── reports/                # Validation reports, preprocessing reports & model evaluation
-│   ├── validation/
-│   ├── preprocessing/
-│   ├── eda/
-│   └── model/
-│       ├── metrics.json
-│       ├── classification_report.json
-│       ├── confusion_matrix.png
-│       ├── roc_curve.png
-│       ├── precision_recall_curve.png
-│       ├── experiment_comparison.json
-│       ├── experiment_comparison.png
-│       ├── model_metadata.json
-│       └── model_selection.md
-│
-├── scripts/                # Execution scripts
-│   ├── validate_data.py
-│   ├── run_eda.py
-│   ├── preprocess_data.py
-│   ├── train_model.py
-│   └── compare_models.py
-│
-├── ProjectDetails.md       # Master project specification
-├── README.md               # Project documentation
-├── requirements.txt        # Python dependencies
-├── .env.example            # Environment variables template
-├── .gitignore              # Git ignore patterns
-└── params.yaml             # Pipeline and model configurations
-```
-
----
-
-## Getting Started
-
-### 1. Clone the repository & Install Dependencies
 ```bash
 git clone <repository-url>
 cd credit-card-fraud-mlops
@@ -498,16 +325,328 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Fetch Dataset via DVC
+Copy and configure the environment file:
+
+```bash
+cp .env.example .env
+```
+
+### 2. Data Setup
+
 ```bash
 dvc pull
 ```
 
-### 3. Run Pipeline Stages & Tests
+This restores the DVC-tracked raw dataset and processed artefacts from the configured remote.
+
+### 3. Reproduce the Pipeline (optional)
+
 ```bash
-python scripts/validate_data.py
-python scripts/preprocess_data.py
-python scripts/train_model.py
-python scripts/compare_models.py
-pytest tests/
+dvc repro
 ```
+
+Runs all five pipeline stages in order. Skip this step if the processed artefacts and model are already present.
+
+### 4. Start MLflow
+
+```bash
+MLFLOW_ALLOW_FILE_STORE=true mlflow ui
+```
+
+Available at `http://127.0.0.1:5000`.
+
+### 5. Start FastAPI
+
+```bash
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Available at `http://127.0.0.1:8000`. Swagger UI at `/docs`, ReDoc at `/redoc`.
+
+### 6. Start Streamlit
+
+```bash
+streamlit run streamlit_app.py
+```
+
+Available at `http://localhost:8501` by default.
+
+### 7. Docker (API + Prometheus + Grafana)
+
+```bash
+docker build -t credit-card-fraud-api:latest .
+docker compose up -d
+```
+
+| Service | URL |
+|---|---|
+| FastAPI | `http://localhost:8000` |
+| Prometheus | `http://localhost:9090` |
+| Grafana | `http://localhost:3001` |
+
+```bash
+docker compose ps        # check container status
+docker compose logs api  # view API logs
+docker compose down      # stop all services
+```
+
+Set `GRAFANA_ADMIN_USER` and `GRAFANA_ADMIN_PASSWORD` in `.env` to override the default local credentials.
+
+---
+
+## Using the Application
+
+1. Open the Streamlit UI at `http://localhost:8501`
+2. Use **Load Normal Transaction** or **Load Suspicious Transaction** to populate example values, or enter transaction details manually
+3. Select the **Transaction Type** (`CASH_IN`, `CASH_OUT`, `DEBIT`, `PAYMENT`, `TRANSFER`)
+4. Enter the **Transaction Amount** and the sender/receiver account balances before and after the transaction
+5. Click **Check Transaction**
+6. Review the result card — it shows whether the transaction appears legitimate or is a potential fraud, along with the fraud risk percentage
+7. If fraud risk is high, investigate or escalate the transaction before proceeding
+
+---
+
+## API
+
+Base URL: `http://127.0.0.1:8000`  
+Interactive docs: `/docs` (Swagger UI) · `/redoc` (ReDoc)
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/health` | Service and Champion model load status |
+| `POST` | `/predict` | Predict fraud probability for one transaction |
+| `GET` | `/model-info` | Non-sensitive Champion model metadata |
+| `GET` | `/monitoring` | Aggregate operational metrics summary |
+| `GET` | `/metrics` | Prometheus metrics exposition |
+
+### `/predict` Example
+
+**Request**:
+```json
+{
+  "type": "TRANSFER",
+  "amount": 1000.0,
+  "oldbalanceOrg": 1000.0,
+  "newbalanceOrig": 0.0,
+  "oldbalanceDest": 0.0,
+  "newbalanceDest": 1000.0
+}
+```
+
+**Response**:
+```json
+{
+  "is_fraud": true,
+  "fraud_probability": 0.97,
+  "threshold": 0.9,
+  "model_name": "CreditCardFraudDetector",
+  "model_alias": "champion"
+}
+```
+
+---
+
+## Testing
+
+```bash
+pytest -q
+```
+
+The test suite covers:
+
+- Data validation logic
+- Preprocessing transformations
+- Feature engineering
+- Model training and evaluation
+- MLflow tracking and registry
+- Model comparison and validation
+- API endpoints and schemas
+- Monitoring state
+- Prometheus metrics
+- Drift detection
+- Retraining and promotion workflows
+- Human approval logic
+- DVC pipeline configuration
+
+---
+
+## CI
+
+The GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push and pull request to `main`:
+
+1. Install Python 3.11 and `requirements.txt`
+2. Compile `app/` and `src/` with `python -m compileall`
+3. Run the full Pytest suite
+4. Build the Docker image
+5. Start the container and smoke-test `/health`, `/model-info`, `/docs`, `/redoc`, and `/predict`
+
+The CI workflow does not run DVC, retrain models, or modify the MLflow Champion alias. On a clean runner without a local `mlruns/` directory, the `/predict` smoke test expects a `503` response (Champion unavailable) rather than fabricating a model artefact.
+
+---
+
+## Retraining & Model Promotion
+
+When drift is detected or new labelled data becomes available:
+
+```
+New Data / Drift Alert
+  → DVC Versioning
+  → Validation → Preprocessing → Feature Engineering
+  → Training → MLflow Candidate
+  → Candidate Evaluation → Champion Comparison
+  → Promotion Report → Human Approval → Promote / Reject
+```
+
+**Create a candidate and compare against the Champion**:
+
+```bash
+python scripts/retrain_model.py --new-data data/raw/new_data.csv
+```
+
+**Review and approve a pending candidate**:
+
+```bash
+python scripts/approve_model.py \
+  --report reports/model/promotion_decision.json \
+  --operator <operator-name>
+```
+
+The CLI requires the exact input `APPROVE` to promote. Any other input (including `yes`, `y`, `1`) cancels safely. `REJECT` records the operator and reason, leaves the Champion unchanged, and retains the candidate for investigation.
+
+**Promotion gates** (configured in `params.yaml`):
+
+| Gate | Default |
+|---|---|
+| Minimum recall delta | 0.0 (no regression) |
+| Minimum PR-AUC delta | 0.0 (no regression) |
+| Minimum F1 improvement | 0.001 |
+
+Approval records are written to `reports/model/approval_history.json` and `reports/model/approval_decision.md`. Previous Champion versions remain registered for rollback.
+
+---
+
+## Configuration
+
+### `params.yaml`
+
+Central configuration for all pipeline stages and model settings. Key sections:
+
+| Section | Controls |
+|---|---|
+| `data_validation` | Required columns, types, target column |
+| `preprocessing` | Input/output paths, columns to drop |
+| `feature_engineering` | Enable/disable balance diffs and amount ratio |
+| `data_split` | Test size, random state, stratification |
+| `model` | Strategy, threshold (0.90), XGBoost hyperparameters |
+| `mlflow` | Tracking URI, experiment name, registered model name, aliases |
+| `promotion` | Minimum metric deltas for candidate promotion |
+| `threshold_analysis` | Thresholds evaluated during model selection |
+
+### Environment Variables (`.env`)
+
+Copy `.env.example` to `.env` and set values as needed. Key variables:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `MLFLOW_TRACKING_URI` | `file:./mlruns` | MLflow tracking store location |
+| `MLFLOW_ALLOW_FILE_STORE` | `true` | Required for local file-based MLflow store |
+| `FRAUD_API_URL` | `http://127.0.0.1:8000` | Streamlit → API base URL |
+| `GRAFANA_ADMIN_USER` | `admin` | Grafana admin username |
+| `GRAFANA_ADMIN_PASSWORD` | `admin` | Grafana admin password |
+
+Do not commit `.env` or any real credentials to version control.
+
+---
+
+## Reproducibility
+
+| Tool | Role |
+|---|---|
+| Git | Versions all code, configuration, and pipeline definitions |
+| DVC | Versions datasets and pipeline stage outputs; `dvc repro` re-executes the full pipeline deterministically |
+| MLflow | Tracks every experiment run with parameters, metrics, and artefacts; the Model Registry preserves all registered versions |
+
+Together, any combination of Git commit + DVC lock + MLflow run ID uniquely identifies the data, code, and model that produced a given result.
+
+---
+
+## Troubleshooting
+
+**FastAPI won't start — `Champion model is unavailable`**  
+The `mlruns/` directory or the `@champion` alias is missing. Run `dvc repro` to regenerate the model, then verify the alias exists in the MLflow UI.
+
+**`MLFLOW_ALLOW_FILE_STORE` error**  
+Set the environment variable before starting the API or MLflow UI:
+```bash
+export MLFLOW_ALLOW_FILE_STORE=true
+```
+The Docker image and `docker-compose.yml` set this automatically.
+
+**Streamlit cannot connect to FastAPI**  
+Confirm the API is running on `http://127.0.0.1:8000`. Override the URL with:
+```bash
+FRAUD_API_URL=http://127.0.0.1:8000 streamlit run streamlit_app.py
+```
+
+**DVC data unavailable**  
+Run `dvc pull` to restore tracked data from the configured remote. If the remote is not configured, check `.dvc/config`.
+
+**Docker Compose — port already in use**  
+Grafana maps to host port `3001` to avoid conflicts with a locally running Grafana on `3000`. If `8000` or `9090` are occupied, stop the conflicting process or adjust the port mapping in `docker-compose.yml`.
+
+**Candidate promotion fails validation**  
+Check `reports/model/promotion_decision.json` for the specific gate that was not met. The candidate must not regress on Recall or PR-AUC and must improve F1 by at least 0.001.
+
+---
+
+## Development / Extending the Project
+
+| Area | Location |
+|---|---|
+| Data validation rules | `src/data/validation.py` |
+| Preprocessing steps | `src/data/preprocessing.py` |
+| Feature engineering | `src/features/feature_engineering.py` |
+| Model training | `src/models/train.py` |
+| Model evaluation | `src/models/evaluate.py` |
+| MLflow tracking helpers | `src/models/tracking.py` |
+| Model comparison logic | `src/models/compare.py` |
+| Registry and alias management | `src/models/registry.py` |
+| Promotion gates | `src/models/validate.py`, `src/models/promotion.py` |
+| Human approval | `src/models/approval.py` |
+| Drift detection | `src/monitoring/drift.py` |
+| API routes | `app/main.py` |
+| Request/response schemas | `app/schemas.py` |
+| Operational monitoring state | `app/monitoring.py` |
+| Prometheus metrics | `app/prometheus_metrics.py` |
+| Tests | `tests/` |
+| Pipeline scripts | `scripts/` |
+| Pipeline definition | `dvc.yaml` |
+| All configuration | `params.yaml` |
+
+When adding a new feature, add corresponding tests in `tests/` and update `params.yaml` if the feature introduces new configuration.
+
+---
+
+## Security & Data Considerations
+
+- Do not commit the raw dataset (`data/raw/`) — it is tracked by DVC and excluded by `.gitignore`
+- Do not commit `.env` or any real credentials — use `.env.example` as the template
+- The API does not log raw transaction payloads, account identifiers (`nameOrig`, `nameDest`), or high-cardinality request values as metric labels
+- Monitoring stores only aggregate statistics in process-local memory; no request bodies are persisted
+- Keep production credentials, MLflow backend URIs, and cloud storage keys outside version control
+
+---
+
+## Limitations & Future Improvements
+
+- **Local MLflow and DVC storage** — the current setup uses a local file store (`file:./mlruns`) and a local DVC remote (`.dvc/storage`). A production deployment would use a remote tracking server (e.g. MLflow on EC2 or Databricks) and cloud object storage (e.g. S3) for DVC
+- **No authentication on the API** — the FastAPI service has no authentication or authorisation layer; adding OAuth2 or API key validation would be required before public exposure
+- **No CD pipeline** — the GitHub Actions workflow covers CI only (test, build, smoke test); automated deployment to a cloud environment is not configured
+- **Single-replica monitoring** — the in-process monitoring counters reset on restart and are not shared across replicas; a production setup would require a centralised metrics backend
+- **Streamlit is a local development UI** — it is not hardened for multi-user or public deployment
+
+---
+
+## License
+
+No license is currently specified in this repository.
