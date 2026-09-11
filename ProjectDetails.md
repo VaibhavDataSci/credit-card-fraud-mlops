@@ -6,7 +6,9 @@ Build an end-to-end **Credit Card Fraud Detection MLOps pipeline** using XGBoost
 
 The project must demonstrate the complete ML lifecycle:
 
-**Data → Validation → Preprocessing → Feature Engineering → SMOTE → Training → MLflow → Model Registry → FastAPI → Docker → CI/CD → Monitoring → Drift Detection → Retraining**
+**Data → Validation → Preprocessing → Feature Engineering → Training → MLflow → Model Evaluation → Model Registry → Champion → FastAPI → Streamlit**
+
+Drift and retraining form a separate controlled path: **Production Data / Predictions → Drift Detection → Investigation → Retraining → Candidate Evaluation → Human Approval → Promote or Reject**.
 
 The goal is not just to build a model, but to create a **reproducible, deployable and continuously monitored ML system**.
 
@@ -126,42 +128,50 @@ Monitor:
 ```text
 Raw Dataset
     ↓
-DVC
+DVC — Data Versioning
     ↓
 Data Validation
     ↓
-Preprocessing
+Preprocessing + Feature Engineering
     ↓
-Feature Engineering
+Model Training (XGBoost)
     ↓
-Train/Test Split
+MLflow — Experiment Tracking
     ↓
-SMOTE (training data only)
+Model Evaluation & Comparison
     ↓
-XGBoost
+MLflow Model Registry
     ↓
-MLflow Tracking
+Champion Model
     ↓
-Model Registry
+Production API (FastAPI)
     ↓
-Model Validation
-    ↓
-FastAPI
-    ↓
-Docker
-    ↓
-CI/CD
-    ↓
-Monitoring
+Streamlit — Bank Employee UI
+```
+
+## Drift / Retraining / Approval Workflow
+
+```text
+Production Data / Predictions
     ↓
 Drift Detection
     ↓
+Drift Detected?
+    ↓
+Investigation
+    ↓
 Retraining
     ↓
-New MLflow Model Version
+Candidate Model
     ↓
-Champion Model
+Model Evaluation
+    ↓
+Human Approval
+    ├── APPROVE → Promote Candidate to Champion
+    └── REJECT → Keep Existing Champion
 ```
+
+Human approval is only required when drift leads to retraining and a new candidate model needs promotion. It is not part of the normal initial training → registry → production path.
 
 ---
 

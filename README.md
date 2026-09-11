@@ -20,7 +20,7 @@ The full MLOps workflow will incorporate:
 * **Automated Testing**: Unit and integration tests powered by Pytest.
 * **CI/CD Automation**: GitHub Actions for automated integration, testing, and container build.
 * **Monitoring & Drift Detection**: Real-time performance tracking and data drift detection using Evidently.
-* **Automated Retraining**: Data-driven retraining loop and champion vs. candidate model comparison.
+* **Retraining and Approval**: Drift investigation, candidate evaluation, and explicit human approval before any Champion change.
 
 ---
 
@@ -37,7 +37,7 @@ Phase 4 implemented **Preprocessing & Feature Engineering** (`data/processed/cle
 Phase 5 implemented **Model Training & Evaluation** (`src/models/train.py`, `src/models/evaluate.py`, `scripts/train_model.py`).
 Phase 6 integrated **MLflow Experiment Tracking** (`src/models/tracking.py`).
 Phase 7 implemented **Model Comparison & Selection** — selected `scale_weight_only` at operating threshold `0.90` as deployment candidate.
-Phase 8 implemented **MLflow Model Registry** (`CreditCardFraudDetector` with `@candidate` and `@champion` aliases) and a fully reproducible 5-stage **DVC Pipeline** (`dvc.yaml`).
+Phase 8 implemented **MLflow Model Registry** (`CreditCardFraudDetector` with `@candidate` and `@champion` aliases) and a fully reproducible 5-stage **DVC Pipeline** (`dvc.yaml`). The normal initial lifecycle ends at the validated Champion model served by FastAPI; human approval is reserved for drift-triggered retraining and candidate replacement.
 
 Phase 9 implements the FastAPI inference service in `app/`. It loads the validated Champion pipeline directly from MLflow, applies the existing feature engineering, and uses the selected `0.90` operating threshold. The API does not load the local Joblib model artifact.
 
@@ -130,24 +130,30 @@ Example request:
 ### Phase 9 Architecture
 
 ```text
-Client
+Raw Dataset
     ↓
-FastAPI
+DVC — Data Versioning
+    ↓
+Data Validation
+    ↓
+Preprocessing + Feature Engineering
+    ↓
+Model Training (XGBoost)
+    ↓
+MLflow — Experiment Tracking
+    ↓
+Model Evaluation & Comparison
     ↓
 MLflow Model Registry
     ↓
-CreditCardFraudDetector@champion
+Champion Model
     ↓
-Existing feature engineering + fitted preprocessing
+Production API (FastAPI)
     ↓
-XGBoost
-    ↓
-Fraud probability
-    ↓
-Threshold 0.90
-    ↓
-Fraud / Not Fraud
+Streamlit — Bank Employee UI
 ```
+
+Human approval is not part of this normal initial training-to-production path. It is used only when drift leads to retraining and a new candidate needs promotion.
 
 ## Phase 12 — GitHub Actions CI/CD
 
@@ -170,7 +176,7 @@ Training → MLflow Candidate
     ↓
 Candidate Evaluation → Champion Comparison
     ↓
-Promote / Reject
+Promotion Report → Human Approval → Promote / Reject
 ```
 
 Run candidate creation and comparison with:
@@ -181,7 +187,7 @@ python scripts/retrain_model.py --new-data data/raw/new_data.csv
 
 Promotion requires the explicit `--promote` flag and all configured gates in `params.yaml`: no recall or PR-AUC regression, a measurable minimum F1 improvement, valid probabilities, and no false-negative increase. The default threshold remains `0.90` and the strategy remains `scale_weight_only`.
 
-Drift does not automatically replace the model. Candidate models must pass validation and comparison before promotion. Rejected candidates leave the current Champion unchanged, and previous Champion versions remain registered for rollback by an operator. Decisions are written to `reports/model/promotion_decision.json` and `reports/model/promotion_decision.md`.
+Drift does not automatically replace the model. Candidate models must pass validation and comparison before entering `PENDING_APPROVAL`. Human approval is required only in this drift/retraining path. Rejected candidates leave the current Champion unchanged, and previous Champion versions remain registered for rollback by an operator. Decisions are written to `reports/model/promotion_decision.json` and `reports/model/promotion_decision.md`.
 
 ## Human-in-the-Loop Model Promotion
 
@@ -258,10 +264,35 @@ Monitoring stores aggregate values in process-local memory only. It does not per
 
 Registered model name: `CreditCardFraudDetector`
 
-Lifecycle flow:
+Initial baseline registration:
 ```text
-Experiment Run ──► Candidate Model ──► Validation (ModelValidator) ──► Champion Model (@champion)
+Validated Model
+    ↓
+MLflow Model Registry
+    ↓
+Champion Model
 ```
+
+Drift / retraining:
+```text
+Drift Detection
+    ↓
+Investigation
+    ↓
+Retraining
+    ↓
+Candidate Model
+    ↓
+Evaluation
+    ↓
+PENDING_APPROVAL
+    ↓
+Human Approval
+    ├── APPROVE → Promote Candidate to Champion
+    └── REJECT → Keep Existing Champion
+```
+
+Human Approval is required only when drift leads to retraining and a candidate model needs promotion. It is not part of the initial training and registration flow.
 
 - **Registry Module**: `src/models/registry.py` provides model registration, tag tracking, and alias management.
 - **Model Validation**: `src/models/validate.py` enforces metric checks, strategy validation (`scale_weight_only`), operating threshold check (`0.90`), model loadability, and inference verification prior to Champion promotion.
@@ -326,47 +357,55 @@ pytest -q
 
 ---
 
-## Planned Architecture
+## Overall Architecture
 
 ```text
 Raw Dataset
     ↓
-DVC
+DVC — Data Versioning
     ↓
 Data Validation
     ↓
-Preprocessing
+Preprocessing + Feature Engineering
     ↓
-Feature Engineering
+Model Training (XGBoost)
     ↓
-Train/Test Split
+MLflow — Experiment Tracking
     ↓
-SMOTE (training data only)
+Model Evaluation & Comparison
     ↓
-XGBoost
+MLflow Model Registry
     ↓
-MLflow Experiment Tracking
+Champion Model
     ↓
-Model Registry
+Production API (FastAPI)
     ↓
-Model Validation
-    ↓
-FastAPI
-    ↓
-Docker
-    ↓
-CI/CD
-    ↓
-Monitoring
+Streamlit — Bank Employee UI
+```
+
+### Drift / Retraining / Approval Workflow
+
+```text
+Production Data / Predictions
     ↓
 Drift Detection
     ↓
+Drift Detected?
+    ↓
+Investigation
+    ↓
 Retraining
     ↓
-New Model Version
+Candidate Model
     ↓
-Champion Model
+Model Evaluation
+    ↓
+Human Approval
+    ├── APPROVE → Promote Candidate to Champion
+    └── REJECT → Keep Existing Champion
 ```
+
+Human approval appears only in the drift/retraining workflow. It is not part of the normal initial training → registry → production path.
 
 ---
 
