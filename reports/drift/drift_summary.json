@@ -1,0 +1,102 @@
+{
+  "reference_rows": 10000,
+  "current_rows": 10000,
+  "features_analyzed": [
+    "type",
+    "amount",
+    "oldbalanceOrg",
+    "newbalanceOrig",
+    "oldbalanceDest",
+    "newbalanceDest",
+    "balance_diff_orig",
+    "balance_diff_dest",
+    "amount_to_balance_ratio"
+  ],
+  "drifted_features": [
+    "type",
+    "amount",
+    "oldbalanceOrg",
+    "newbalanceOrig",
+    "oldbalanceDest",
+    "newbalanceDest",
+    "balance_diff_orig",
+    "balance_diff_dest",
+    "amount_to_balance_ratio"
+  ],
+  "drift_share": 1.0,
+  "drift_share_threshold": 0.5,
+  "dataset_drift_detected": true,
+  "investigation_required": true,
+  "feature_results": {
+    "type": {
+      "drift_score": 0.7315839659592219,
+      "drift_threshold": 0.1,
+      "drift_detected": true
+    },
+    "amount": {
+      "drift_score": 3.453348686534235,
+      "drift_threshold": 0.1,
+      "drift_detected": true
+    },
+    "oldbalanceOrg": {
+      "drift_score": 0.6784723421351675,
+      "drift_threshold": 0.1,
+      "drift_detected": true
+    },
+    "newbalanceOrig": {
+      "drift_score": 0.6764455225011706,
+      "drift_threshold": 0.1,
+      "drift_detected": true
+    },
+    "oldbalanceDest": {
+      "drift_score": 0.5564410904138334,
+      "drift_threshold": 0.1,
+      "drift_detected": true
+    },
+    "newbalanceDest": {
+      "drift_score": 0.5443675771494426,
+      "drift_threshold": 0.1,
+      "drift_detected": true
+    },
+    "balance_diff_orig": {
+      "drift_score": 5.7122887322675115,
+      "drift_threshold": 0.1,
+      "drift_detected": true
+    },
+    "balance_diff_dest": {
+      "drift_score": 1.072832235518957,
+      "drift_threshold": 0.1,
+      "drift_detected": true
+    },
+    "amount_to_balance_ratio": {
+      "drift_score": 5.041042401348557,
+      "drift_threshold": 0.1,
+      "drift_detected": true
+    }
+  },
+  "missing_values": {
+    "reference": {
+      "type": 0,
+      "amount": 0,
+      "oldbalanceOrg": 0,
+      "newbalanceOrig": 0,
+      "oldbalanceDest": 0,
+      "newbalanceDest": 0,
+      "balance_diff_orig": 0,
+      "balance_diff_dest": 0,
+      "amount_to_balance_ratio": 0
+    },
+    "current": {
+      "type": 0,
+      "amount": 0,
+      "oldbalanceOrg": 0,
+      "newbalanceOrig": 0,
+      "oldbalanceDest": 0,
+      "newbalanceDest": 0,
+      "balance_diff_orig": 0,
+      "balance_diff_dest": 0,
+      "amount_to_balance_ratio": 0
+    }
+  },
+  "interpretation": "Distributional drift is an investigation signal, not automatic model failure or replacement."
+}

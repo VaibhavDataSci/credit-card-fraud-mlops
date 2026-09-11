@@ -9,12 +9,14 @@ WORKDIR /app
 RUN groupadd --system appuser && useradd --system --gid appuser appuser
 
 COPY requirements-api.txt ./
-RUN pip install --no-cache-dir -r requirements-api.txt
+RUN pip install --no-cache-dir --timeout 180 --retries 5 -r requirements-api.txt
 
 COPY --chown=appuser:appuser params.yaml ./
 COPY --chown=appuser:appuser app ./app
 COPY --chown=appuser:appuser src/__init__.py ./src/__init__.py
 COPY --chown=appuser:appuser src/features ./src/features
+COPY --chown=appuser:appuser src/monitoring ./src/monitoring
+COPY --chown=appuser:appuser scripts/detect_drift.py ./scripts/detect_drift.py
 
 USER appuser
 

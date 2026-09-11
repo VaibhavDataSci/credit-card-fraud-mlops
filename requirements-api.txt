@@ -9,3 +9,4 @@ imbalanced-learn>=0.10.0
 PyYAML>=6.0
 joblib>=1.2.0
 python-dotenv>=1.0.0
+evidently>=0.7.21

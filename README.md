@@ -155,6 +155,20 @@ The `CI` workflow in `.github/workflows/ci.yml` runs on pushes to `main` and pul
 
 The workflow does not run DVC, process the raw dataset, retrain models, or modify the MLflow Champion alias. The local filesystem MLflow registry is intentionally not committed, so a clean GitHub runner verifies the container and API contract without fabricating a Champion prediction. When a local `mlruns/` artifact is available, the smoke test also verifies the real `/predict` response.
 
+## Phase 14 — Drift Detection
+
+Drift detection uses Evidently `0.7.21` through `src/monitoring/drift.py` and `scripts/detect_drift.py`. The reference is the existing DVC pipeline output `data/processed/cleaned.parquet`; drift compares the nine production feature columns and excludes the target `isFraud`. Reference and current data are bounded to a configurable sample (default `10,000` rows), so drift analysis does not process the full raw dataset.
+
+Run a comparison with:
+
+```bash
+python scripts/detect_drift.py --current path/to/current.parquet
+```
+
+Reports are written to `reports/drift/drift_report.html` and `reports/drift/drift_summary.json`. Evidently's feature-level methods and `drift_share_threshold=0.5` determine whether overall dataset drift is detected. Missingness, schema, type, and finite-value checks run before comparison.
+
+Drift detection is an investigation signal, not an automatic model replacement trigger. It does not retrain, register, promote, replace, or alter `CreditCardFraudDetector@champion`, its `scale_weight_only` strategy, or the `0.90` threshold. Reports are offline artifacts; no drift endpoint or prediction-path coupling was added.
+
 ## Phase 13 — Model/API Monitoring
 
 The FastAPI service exposes `GET /monitoring` with lightweight aggregate metrics for:
