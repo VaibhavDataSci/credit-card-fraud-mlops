@@ -9,7 +9,7 @@ WORKDIR /app
 RUN groupadd --system appuser && useradd --system --gid appuser appuser
 
 COPY requirements-api.txt ./
-RUN pip install --no-cache-dir --timeout 180 --retries 5 -r requirements-api.txt
+RUN pip install --no-cache-dir --timeout 600 --retries 10 -r requirements-api.txt
 
 COPY --chown=appuser:appuser params.yaml ./
 COPY --chown=appuser:appuser app ./app

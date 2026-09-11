@@ -202,6 +202,27 @@ python scripts/approve_model.py --report reports/model/promotion_decision.json -
 
 The CLI requires the exact input `APPROVE`; `yes`, `y`, `true`, `1`, and other values cancel safely. `REJECT` records the operator and reason, leaves the Champion unchanged, and retains the candidate for investigation. Approval records are appended to `reports/model/approval_history.json` and summarized in `reports/model/approval_decision.md`. Before promotion, candidate identity and the current Champion version are rechecked to prevent stale approvals. Previous Champion versions remain registered for rollback.
 
+## Phase 17 — Prometheus + Grafana Monitoring
+
+The observability stack is:
+
+```text
+FastAPI /metrics → Prometheus → Grafana
+```
+
+Prometheus metrics include request counters, request-duration histograms, 4xx/5xx errors, fraud/non-fraud prediction counters, fraud-probability buckets, data-quality errors, and low-cardinality Champion model information. The existing `/monitoring` endpoint remains available for the human-readable process-local summary.
+
+Local URLs:
+
+- FastAPI: `http://localhost:8000`
+- Swagger: `http://localhost:8000/docs`
+- Prometheus: `http://localhost:9090`
+- Grafana: `http://localhost:3001` when host port `3000` is occupied
+
+Grafana provisions a Prometheus datasource and the `Credit Card Fraud API` dashboard automatically. Dashboard panels cover request rate, error rate, p95 latency, fraud prediction rate, fraud/non-fraud predictions, probability distribution, data-quality errors, and Champion model information. Set `GRAFANA_ADMIN_USER` and `GRAFANA_ADMIN_PASSWORD` for local credentials; defaults are intended only for local development.
+
+Monitoring is observational. Monitoring and Grafana alerts do not automatically retrain or promote models, and the Phase 16 human approval workflow remains the final promotion gate.
+
 ## Phase 14 — Drift Detection
 
 Drift detection uses Evidently `0.7.21` through `src/monitoring/drift.py` and `scripts/detect_drift.py`. The reference is the existing DVC pipeline output `data/processed/cleaned.parquet`; drift compares the nine production feature columns and excludes the target `isFraud`. Reference and current data are bounded to a configurable sample (default `10,000` rows), so drift analysis does not process the full raw dataset.

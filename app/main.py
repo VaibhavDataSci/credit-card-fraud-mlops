@@ -7,9 +7,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.responses import Response
+from prometheus_client import CONTENT_TYPE_LATEST
 
 from app.model_loader import ChampionModelLoader
 from app.monitoring import MonitoringState
+from app import prometheus_metrics
 from app.schemas import (
     HealthResponse,
     ModelInfoResponse,
@@ -28,6 +31,7 @@ async def lifespan(app: FastAPI):
     """Load the registry model once during application startup."""
     try:
         model_loader.load()
+        prometheus_metrics.set_model_info(model_loader.model_name, model_loader.alias, model_loader.version)
     except Exception:
         logger.error("Fraud API started without an available Champion model")
     yield
@@ -52,6 +56,7 @@ async def monitor_requests(request: Request, call_next):
         latency_ms = (time.perf_counter() - started_at) * 1000
         status_code = response.status_code if response is not None else 500
         monitoring.record_request(request.url.path, request.method, status_code, latency_ms)
+        prometheus_metrics.record_request(request.method, request.url.path, status_code, latency_ms / 1000)
 
 
 @app.exception_handler(RequestValidationError)
@@ -69,6 +74,7 @@ async def handle_validation_error(request: Request, exc: RequestValidationError)
         else:
             category = "invalid_type"
         monitoring.record_data_quality_error(category)
+        prometheus_metrics.record_data_quality(category)
     return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
 
@@ -91,6 +97,7 @@ def predict(transaction: TransactionRequest, request: Request) -> PredictionResp
             model_alias=model_loader.alias,
         )
         monitoring.record_prediction(probability, prediction.is_fraud, model_loader.threshold)
+        prometheus_metrics.record_prediction(prediction.is_fraud, probability)
         return prediction
     except Exception:
         logger.exception("Prediction failed for request %s", request.url.path)
@@ -100,6 +107,11 @@ def predict(transaction: TransactionRequest, request: Request) -> PredictionResp
 @app.get("/model-info", response_model=ModelInfoResponse, tags=["service"])
 def model_info() -> ModelInfoResponse:
     return ModelInfoResponse(**model_loader.info())
+
+
+@app.get("/metrics", include_in_schema=False)
+def metrics() -> Response:
+    return Response(content=prometheus_metrics.exposition(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get("/monitoring", tags=["monitoring"])

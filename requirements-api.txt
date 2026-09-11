@@ -10,3 +10,4 @@ PyYAML>=6.0
 joblib>=1.2.0
 python-dotenv>=1.0.0
 evidently>=0.7.21
+prometheus-client>=0.20.0

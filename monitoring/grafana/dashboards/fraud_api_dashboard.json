@@ -1,0 +1,21 @@
+{
+  "uid": "fraud-api-monitoring",
+  "title": "Credit Card Fraud API",
+  "tags": ["fraud", "fastapi", "prometheus"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "templating": {"list": []},
+  "time": {"from": "now-15m", "to": "now"},
+  "panels": [
+    {"id": 1, "type": "timeseries", "title": "Request Rate", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum(rate(http_requests_total[5m]))", "legendFormat": "requests/s"}]},
+    {"id": 2, "type": "timeseries", "title": "Error Rate", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum(rate(http_errors_total[5m])) / clamp_min(sum(rate(http_requests_total[5m])), 1e-9)", "legendFormat": "error rate"}]},
+    {"id": 3, "type": "timeseries", "title": "95th Percentile Latency", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))", "legendFormat": "p95 seconds"}]},
+    {"id": 4, "type": "stat", "title": "Fraud Prediction Rate", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum(rate(fraud_predictions_total[5m])) / clamp_min(sum(rate(fraud_predictions_total[5m])) + sum(rate(non_fraud_predictions_total[5m])), 1e-9)"}]},
+    {"id": 5, "type": "timeseries", "title": "Fraud vs Non-Fraud Predictions", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "rate(fraud_predictions_total[5m])", "legendFormat": "fraud"}, {"expr": "rate(non_fraud_predictions_total[5m])", "legendFormat": "non-fraud"}]},
+    {"id": 6, "type": "histogram", "title": "Fraud Probability Distribution", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum by (le) (rate(fraud_probability_bucket[5m]))", "format": "heatmap"}]},
+    {"id": 7, "type": "timeseries", "title": "Data Quality Errors", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum by (type) (rate(data_quality_errors_total[5m]))", "legendFormat": "{{type}}"}]},
+    {"id": 8, "type": "stat", "title": "Champion Model", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "model_info", "legendFormat": "{{model_name}} @ {{model_alias}} v{{model_version}}"}]}
+  ]
+}
